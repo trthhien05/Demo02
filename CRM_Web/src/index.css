@@ -1,0 +1,4 @@
+/* Xóa các style mặc định của Vite để dùng global.css */
+body {
+  margin: 0;
+}

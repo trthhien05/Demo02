@@ -1,0 +1,137 @@
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using ConnectDB.Data;
+using System.Linq;
+using System.Threading.Tasks;
+using System;
+using Microsoft.AspNetCore.Authorization;
+using ConnectDB.Models;
+
+namespace ConnectDB.Controllers;
+
+[Route("api/[controller]")]
+[ApiController]
+[Authorize(Roles = "Admin")]
+public class ReportsController : ControllerBase
+{
+    private readonly AppDbContext _context;
+
+    public ReportsController(AppDbContext context)
+    {
+        _context = context;
+    }
+
+    // GET: api/reports/customer-summary
+    [HttpGet("customer-summary")]
+    public async Task<IActionResult> GetCustomerSummary()
+    {
+        var totalCustomers = await _context.Customers.CountAsync();
+        
+        var segmentDistribution = await _context.Customers
+            .GroupBy(c => c.Segment ?? "Unknown")
+            .Select(g => new { Segment = g.Key, Count = g.Count() })
+            .ToListAsync();
+
+        var tierDistribution = await _context.Customers
+            .GroupBy(c => c.Tier)
+            .Select(g => new { Tier = g.Key.ToString(), Count = g.Count() })
+            .ToListAsync();
+
+        return Ok(new
+        {
+            TotalCustomers = totalCustomers,
+            SegmentDistribution = segmentDistribution,
+            TierDistribution = tierDistribution
+        });
+    }
+
+    // GET: api/reports/loyalty-stats
+    [HttpGet("loyalty-stats")]
+    public async Task<IActionResult> GetLoyaltyStats()
+    {
+        var totalPoints = await _context.Customers.SumAsync(c => c.Points);
+        var avgPoints = await _context.Customers.AverageAsync(c => (double?)c.Points) ?? 0;
+        
+        var recentTransactions = await _context.LoyaltyTransactions
+            .OrderByDescending(t => t.CreatedAt)
+            .Take(10)
+            .Select(t => new { t.TransactionReference, t.InvoiceAmount, t.PointsEarned, t.CreatedAt })
+            .ToListAsync();
+
+        return Ok(new
+        {
+            TotalPointsInSystem = totalPoints,
+            AveragePointsPerCustomer = Math.Round(avgPoints, 2),
+            RecentTransactions = recentTransactions
+        });
+    }
+
+    // GET: api/reports/reservation-stats
+    [HttpGet("reservation-stats")]
+    public async Task<IActionResult> GetReservationStats()
+    {
+        var totalReservations = await _context.Reservations.CountAsync();
+        
+        var statusDistribution = await _context.Reservations
+            .GroupBy(r => r.Status)
+            .Select(g => new { Status = g.Key.ToString(), Count = g.Count() })
+            .ToListAsync();
+
+        return Ok(new
+        {
+            TotalReservations = totalReservations,
+            StatusDistribution = statusDistribution
+        });
+    }
+
+    // GET: api/reports/revenue-stats
+    [HttpGet("revenue-stats")]
+    public async Task<IActionResult> GetRevenueStats()
+    {
+        var sevenDaysAgo = DateTime.UtcNow.Date.AddDays(-7);
+        
+        var dailyRevenue = await _context.Invoices
+            .Where(i => i.IssuedAt >= sevenDaysAgo && i.Status == InvoiceStatus.Paid)
+            .GroupBy(i => i.IssuedAt.Date)
+            .Select(g => new { Date = g.Key.ToString("yyyy-MM-dd"), Amount = g.Sum(i => i.FinalAmount) })
+            .OrderBy(r => r.Date)
+            .ToListAsync();
+
+        return Ok(dailyRevenue);
+    }
+
+    // GET: api/reports/top-selling
+    [HttpGet("top-selling")]
+    public async Task<IActionResult> GetTopSellingItems()
+    {
+        var topItems = await _context.OrderItems
+            .GroupBy(oi => oi.MenuItem.Name)
+            .Select(g => new { ItemName = g.Key, Quantity = g.Sum(oi => oi.Quantity) })
+            .OrderByDescending(x => x.Quantity)
+            .Take(5)
+            .ToListAsync();
+
+        return Ok(topItems);
+    }
+
+    // GET: api/reports/export-shifts
+    [HttpGet("export-shifts")]
+    public async Task<IActionResult> ExportShiftsCsv()
+    {
+        var shifts = await _context.Shifts
+            .Include(s => s.User)
+            .OrderByDescending(s => s.StartTime)
+            .ToListAsync();
+
+        var csv = new System.Text.StringBuilder();
+        csv.AppendLine("Employee,Start,End,Note");
+
+        foreach (var s in shifts)
+        {
+            csv.AppendLine($"{s.User.FullName},{s.StartTime},{s.EndTime},{s.Note}");
+        }
+
+        return File(System.Text.Encoding.UTF8.GetBytes(csv.ToString()), "text/csv", "ShiftsReport.csv");
+    }
+}
+
