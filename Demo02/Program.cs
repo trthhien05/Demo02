@@ -21,8 +21,11 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     if (connectionString?.StartsWith("postgres://") == true)
     {
         var databaseUri = new Uri(connectionString);
-        var userInfo = databaseUri.UserInfo.Split(':');
-        connectionString = $"Host={databaseUri.Host};Port={databaseUri.Port};Database={databaseUri.AbsolutePath.TrimStart('/')};Username={userInfo[0]};Password={userInfo[1]};SSL Mode=Require;Trust Server Certificate=True";
+        var userInfoArray = databaseUri.UserInfo.Split(':');
+        var username = Uri.UnescapeDataString(userInfoArray[0]);
+        var password = userInfoArray.Length > 1 ? Uri.UnescapeDataString(userInfoArray[1]) : "";
+
+        connectionString = $"Host={databaseUri.Host};Port={databaseUri.Port};Database={databaseUri.AbsolutePath.TrimStart('/')};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=True";
     }
 
     options.UseNpgsql(connectionString);
