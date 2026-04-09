@@ -15,17 +15,31 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")?.Trim();
     
     // Nếu là định dạng URI (postgres://), cần convert sang định dạng Npgsql hiểu được
     if (connectionString?.StartsWith("postgres://") == true)
     {
-        var databaseUri = new Uri(connectionString);
-        var userInfoArray = databaseUri.UserInfo.Split(':');
-        var username = Uri.UnescapeDataString(userInfoArray[0]);
-        var password = userInfoArray.Length > 1 ? Uri.UnescapeDataString(userInfoArray[1]) : "";
-
-        connectionString = $"Host={databaseUri.Host};Port={databaseUri.Port};Database={databaseUri.AbsolutePath.TrimStart('/')};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=True";
+        try 
+        {
+            var databaseUri = new Uri(connectionString);
+            var userInfo = databaseUri.UserInfo;
+            var splitIndex = userInfo.IndexOf(':');
+            
+            if (splitIndex != -1)
+            {
+                var username = Uri.UnescapeDataString(userInfo.Substring(0, splitIndex));
+                var password = Uri.UnescapeDataString(userInfo.Substring(splitIndex + 1));
+                
+                connectionString = $"Host={databaseUri.Host};Port={databaseUri.Port};Database={databaseUri.AbsolutePath.TrimStart('/')};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=True";
+                
+                Console.WriteLine($"[DB CONFIG] Successfully parsed URI. Host: {databaseUri.Host}, Port: {databaseUri.Port}, User: {username}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[DB CONFIG] Error parsing connection URI: {ex.Message}");
+        }
     }
 
     options.UseNpgsql(connectionString);
