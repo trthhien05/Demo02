@@ -31,9 +31,20 @@ builder.Services.AddDbContext<AppDbContext>(options =>
                 var username = Uri.UnescapeDataString(userInfo.Substring(0, splitIndex));
                 var password = Uri.UnescapeDataString(userInfo.Substring(splitIndex + 1));
                 
-                connectionString = $"Host={databaseUri.Host};Port={databaseUri.Port};Database={databaseUri.AbsolutePath.TrimStart('/')};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=True";
+                // Sử dụng Builder để đảm bảo các ký tự đặc biệt trong Password được xử lý an toàn
+                var npgsqlBuilder = new Npgsql.NpgsqlConnectionStringBuilder
+                {
+                    Host = databaseUri.Host,
+                    Port = databaseUri.Port,
+                    Database = databaseUri.AbsolutePath.TrimStart('/'),
+                    Username = username,
+                    Password = password,
+                    SslMode = Npgsql.SslMode.Require,
+                    TrustServerCertificate = true
+                };
                 
-                Console.WriteLine($"[DB CONFIG] Successfully parsed URI. Host: {databaseUri.Host}, Port: {databaseUri.Port}, User: {username}");
+                connectionString = npgsqlBuilder.ToString();
+                Console.WriteLine($"[DB CONFIG] Successfully parsed URI using Builder. Host: {databaseUri.Host}");
             }
         }
         catch (Exception ex)
