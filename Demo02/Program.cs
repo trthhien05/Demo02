@@ -17,26 +17,49 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 {
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")?.Trim();
     
-    // Nếu là định dạng URI (postgres://), cần convert sang định dạng Npgsql hiểu được
+    // Nếu là định dạng URI (postgres://), sử dụng phương pháp bóc tách chuỗi thủ công để tránh lỗi ký tự đặc biệt như '#'
     if (connectionString?.StartsWith("postgres://") == true)
     {
         try 
         {
-            var databaseUri = new Uri(connectionString);
-            var userInfo = databaseUri.UserInfo;
-            var splitIndex = userInfo.IndexOf(':');
+            // 1. Loại bỏ tiền tố "postgres://"
+            var rawContent = connectionString.Substring(11);
             
-            if (splitIndex != -1)
+            // 2. Tìm vị trí dấu '@' cuối cùng (phân tách user:pass và host)
+            var lastAtIndex = rawContent.LastIndexOf('@');
+            if (lastAtIndex != -1)
             {
-                var username = Uri.UnescapeDataString(userInfo.Substring(0, splitIndex));
-                var password = Uri.UnescapeDataString(userInfo.Substring(splitIndex + 1));
+                var userPassPart = rawContent.Substring(0, lastAtIndex);
+                var hostDbPart = rawContent.Substring(lastAtIndex + 1);
                 
-                // Sử dụng Builder để đảm bảo các ký tự đặc biệt trong Password được xử lý an toàn
+                // 3. Tách Username và Password
+                var firstColonIndex = userPassPart.IndexOf(':');
+                var username = Uri.UnescapeDataString(userPassPart.Substring(0, firstColonIndex));
+                var password = Uri.UnescapeDataString(userPassPart.Substring(firstColonIndex + 1));
+                
+                // 4. Tách Host và Path/Query
+                var firstSlashIndex = hostDbPart.IndexOf('/');
+                var hostPortPart = firstSlashIndex != -1 ? hostDbPart.Substring(0, firstSlashIndex) : hostDbPart;
+                var dbPath = firstSlashIndex != -1 ? hostDbPart.Substring(firstSlashIndex + 1) : "defaultdb";
+                
+                // Loại bỏ phần Query (?sslmode=...) nếu có trong dbPath
+                if (dbPath.Contains('?')) dbPath = dbPath.Substring(0, dbPath.IndexOf('?'));
+
+                // 5. Tách Host và Port
+                var host = hostPortPart;
+                var port = 5432; // Mặc định
+                if (hostPortPart.Contains(':'))
+                {
+                    var hostPortArray = hostPortPart.Split(':');
+                    host = hostPortArray[0];
+                    port = int.Parse(hostPortArray[1]);
+                }
+
                 var npgsqlBuilder = new Npgsql.NpgsqlConnectionStringBuilder
                 {
-                    Host = databaseUri.Host,
-                    Port = databaseUri.Port,
-                    Database = databaseUri.AbsolutePath.TrimStart('/'),
+                    Host = host,
+                    Port = port,
+                    Database = dbPath,
                     Username = username,
                     Password = password,
                     SslMode = Npgsql.SslMode.Require,
@@ -44,12 +67,12 @@ builder.Services.AddDbContext<AppDbContext>(options =>
                 };
                 
                 connectionString = npgsqlBuilder.ToString();
-                Console.WriteLine($"[DB CONFIG] Successfully parsed URI using Builder. Host: {databaseUri.Host}");
+                Console.WriteLine($"[DB CONFIG] Manual parsing successful. Host: {host}, DB: {dbPath}");
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[DB CONFIG] Error parsing connection URI: {ex.Message}");
+            Console.WriteLine($"[DB CONFIG] Error in manual parsing: {ex.Message}");
         }
     }
 
