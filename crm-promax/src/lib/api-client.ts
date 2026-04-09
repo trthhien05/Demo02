@@ -1,8 +1,10 @@
 import axios from 'axios';
 import { useAuthStore } from './auth-store';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5013/api';
+
 const apiClient = axios.create({
-  baseURL: 'http://localhost:5013/api', // Cổng backend đang chạy
+  baseURL: API_URL, // Cổng backend linh hoạt
   withCredentials: true, // Quan trọng: Cho phép gửi và nhận HttpOnly Cookie (RefreshToken)
 });
 
@@ -28,7 +30,7 @@ apiClient.interceptors.response.use(
       try {
         // Gọi API cấp mới bằng thư viện axios thuần (để tránh đi qua interceptor này gây loop)
         const res = await axios.post(
-          'http://localhost:5013/api/auth/refresh',
+          `${API_URL}/auth/refresh`,
           {},
           { withCredentials: true }
         );
