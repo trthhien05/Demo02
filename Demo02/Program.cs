@@ -8,24 +8,44 @@ using ConnectDB.BackgroundServices;
 using ConnectDB.Messaging;
 using ConnectDB.Hubs;
 using System.Text;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Add CORS & SignalR
 builder.Services.AddSignalR();
 builder.Services.AddCors(options =>
 {
+    var frontendUrls = builder.Configuration["FRONTEND_URLS"]?.Split(',') 
+        ?? new[] { "http://localhost:5173", "http://localhost:3000" };
+
     options.AddPolicy("AllowFrontend",
         policy =>
         {
-            policy.WithOrigins("http://localhost:5173") // Mặc định của Vite
+            policy.WithOrigins(frontendUrls)
                   .AllowAnyHeader()
                   .AllowAnyMethod()
-                  .AllowCredentials(); // Bắt buộc cho SignalR
+                  .AllowCredentials(); // Bắt buộc cho SignalR và HttpOnly Cookies
         });
+});
+
+// Configure Rate Limiting
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy("LoginLimiter", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(15),
+                QueueLimit = 0
+            }));
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 });
 
 // Add services to the container.
@@ -95,6 +115,24 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
+// Auto-migrate Database on Startup
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var context = services.GetRequiredService<AppDbContext>();
+        if (context.Database.IsRelational())
+        {
+            context.Database.Migrate();
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"An error occurred while migrating the database: {ex.Message}");
+    }
+}
+
 // Seed Initial Data (Users)
 DataSeeder.SeedUsers(app.Services);
 
@@ -108,6 +146,8 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseCors("AllowFrontend");
+
+app.UseRateLimiter(); // Add Rate Limiter middleware
 
 app.UseAuthentication();
 app.UseAuthorization();

@@ -43,13 +43,52 @@ public class AuthService : IAuthService
         return user;
     }
 
-    public async Task<string?> LoginAsync(string username, string password)
+    public async Task<(string AccessToken, string RefreshToken)?> LoginAsync(string username, string password)
     {
         var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
         if (user == null || !VerifyPassword(password, user.PasswordHash))
             return null;
 
-        return GenerateJwtToken(user);
+        var accessToken = GenerateJwtToken(user);
+        var refreshToken = GenerateRefreshToken();
+
+        user.RefreshToken = refreshToken;
+        user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7); // Token sống 7 ngày
+
+        await _context.SaveChangesAsync();
+
+        return (accessToken, refreshToken);
+    }
+
+    public async Task<(string AccessToken, string RefreshToken)?> RefreshTokenAsync(string accessToken, string refreshToken)
+    {
+        // Ta tìm user có RefreshToken tương ứng và kiểm tra hạn
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.RefreshToken == refreshToken);
+        if (user == null || user.RefreshTokenExpiryTime <= DateTime.UtcNow)
+        {
+            return null; // Token không hợp lệ hoặc đã hết hạn
+        }
+
+        var newAccessToken = GenerateJwtToken(user);
+        var newRefreshToken = GenerateRefreshToken();
+
+        user.RefreshToken = newRefreshToken;
+        user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
+
+        await _context.SaveChangesAsync();
+
+        return (newAccessToken, newRefreshToken);
+    }
+
+    public async Task RevokeTokenAsync(string username)
+    {
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
+        if (user == null) return;
+
+        user.RefreshToken = null;
+        user.RefreshTokenExpiryTime = null;
+
+        await _context.SaveChangesAsync();
     }
 
     private string HashPassword(string password)
@@ -105,5 +144,13 @@ public class AuthService : IAuthService
         var tokenHandler = new JwtSecurityTokenHandler();
         var token = tokenHandler.CreateToken(tokenDescriptor);
         return tokenHandler.WriteToken(token);
+    }
+
+    private string GenerateRefreshToken()
+    {
+        var randomNumber = new byte[32];
+        using var rng = RandomNumberGenerator.Create();
+        rng.GetBytes(randomNumber);
+        return Convert.ToBase64String(randomNumber);
     }
 }
