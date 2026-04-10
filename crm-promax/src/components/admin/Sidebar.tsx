@@ -36,9 +36,12 @@ export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [isCollapsed, setIsCollapsed] = React.useState(false);
+  const [isLoggingOut, setIsLoggingOut] = React.useState(false);
   const clearAuth = useAuthStore((state) => state.clearAuth);
 
   const handleLogout = async () => {
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
     try {
       await apiClient.post('/auth/logout');
     } catch (e) {
@@ -46,6 +49,7 @@ export default function Sidebar() {
     } finally {
       clearAuth();
       toast.success('Đã đăng xuất thành công', { description: 'Hẹn gặp lại!' });
+      setIsLoggingOut(false);
       router.push('/admin/login');
     }
   };
@@ -72,7 +76,7 @@ export default function Sidebar() {
               <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/30">
                 <UtensilsCrossed className="text-white" size={20} />
               </div>
-              <span className="font-black text-xl tracking-tighter title-gradient">PROMAX RMS</span>
+              <span className="font-bold text-xl tracking-tighter title-gradient">PROMAX RMS</span>
             </motion.div>
           )}
           <button 
@@ -128,10 +132,10 @@ export default function Sidebar() {
           </div>
           <div 
              onClick={handleLogout}
-             className="sidebar-item text-red-400 hover:bg-red-500/10 cursor-pointer group"
+             className="sidebar-item text-red-400 hover:bg-red-500/10 cursor-pointer group transition-colors"
           >
-             <LogOut size={20} />
-             {!isCollapsed && <span className="font-medium">Sign Out</span>}
+             {isLoggingOut ? <Loader2 size={20} className="animate-spin" /> : <LogOut size={20} />}
+             {!isCollapsed && <span className="font-medium">{isLoggingOut ? "Logging out..." : "Sign Out"}</span>}
           </div>
         </div>
       </div>
