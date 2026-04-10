@@ -22,6 +22,7 @@ public static class DataSeeder
             { 
                 Username = "admin", 
                 FullName = "Administrator", 
+                Email = "admin@promax.com",
                 Role = UserRole.Admin, 
                 PasswordHash = HashPassword("123456") 
             },
@@ -29,6 +30,7 @@ public static class DataSeeder
             { 
                 Username = "waiter", 
                 FullName = "Nhân viên Phục vụ", 
+                Email = "waiter@promax.com",
                 Role = UserRole.Waiter, 
                 PasswordHash = HashPassword("123456") 
             },
@@ -36,6 +38,7 @@ public static class DataSeeder
             { 
                 Username = "kitchen", 
                 FullName = "Đầu bếp Chính", 
+                Email = "kitchen@promax.com",
                 Role = UserRole.Kitchen, 
                 PasswordHash = HashPassword("123456") 
             },
@@ -43,6 +46,7 @@ public static class DataSeeder
             { 
                 Username = "cashier", 
                 FullName = "Thu ngân (Cửa hàng)", 
+                Email = "cashier@promax.com",
                 Role = UserRole.Cashier, 
                 PasswordHash = HashPassword("123456") 
             }

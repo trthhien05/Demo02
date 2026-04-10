@@ -25,4 +25,10 @@ public class User
 
     public string? RefreshToken { get; set; }
     public DateTime? RefreshTokenExpiryTime { get; set; }
+
+    [MaxLength(100)]
+    public string? Email { get; set; }
+    
+    public string? ResetToken { get; set; }
+    public DateTime? ResetTokenExpiryTime { get; set; }
 }

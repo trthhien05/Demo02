@@ -165,7 +165,7 @@ export default function LoginPage() {
                 </div>
                 <span className="text-xs text-muted-foreground group-hover:text-white transition-colors font-medium">Remember me</span>
               </label>
-              <a href="#" className="text-xs text-primary hover:text-primary/80 transition-colors font-medium">Forgot Password?</a>
+              <a href="/admin/forgot-password" className="text-xs text-primary hover:text-primary/80 transition-colors font-medium">Forgot Password?</a>
             </div>
 
             <motion.button

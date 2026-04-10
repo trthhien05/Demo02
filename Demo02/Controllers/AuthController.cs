@@ -85,6 +85,31 @@ public class AuthController : ControllerBase
         return Ok(new { Message = "Đăng xuất thành công." });
     }
 
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+    {
+        var token = await _authService.GeneratePasswordResetTokenAsync(request.Identifier);
+        if (token == null)
+        {
+            // Always return OK to prevent username enumeration
+            return Ok(new { Message = "Nếu tài khoản tồn tại và có email hợp lệ, mã xác nhận đã được gửi đi." });
+        }
+        
+        return Ok(new { Message = "Mã xác nhận đã được gửi tới Email của bạn." });
+    }
+
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+    {
+        var result = await _authService.ResetPasswordAsync(request.Token, request.NewPassword);
+        if (!result)
+        {
+            return BadRequest(new { Message = "Mã xác nhận không hợp lệ hoặc đã hết hạn." });
+        }
+        
+        return Ok(new { Message = "Đặt lại mật khẩu thành công. Vui lòng đăng nhập lại." });
+    }
+
     private void SetRefreshTokenCookie(string token)
     {
         var cookieOptions = new CookieOptions
@@ -110,4 +135,15 @@ public class LoginRequest
 {
     public string Username { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
+}
+
+public class ForgotPasswordRequest
+{
+    public string Identifier { get; set; } = string.Empty;
+}
+
+public class ResetPasswordRequest
+{
+    public string Token { get; set; } = string.Empty;
+    public string NewPassword { get; set; } = string.Empty;
 }

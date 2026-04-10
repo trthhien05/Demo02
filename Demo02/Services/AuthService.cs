@@ -18,11 +18,13 @@ public class AuthService : IAuthService
 {
     private readonly AppDbContext _context;
     private readonly IConfiguration _configuration;
+    private readonly IEmailService _emailService;
 
-    public AuthService(AppDbContext context, IConfiguration configuration)
+    public AuthService(AppDbContext context, IConfiguration configuration, IEmailService emailService)
     {
         _context = context;
         _configuration = configuration;
+        _emailService = emailService;
     }
 
     public async Task<User> RegisterAsync(string username, string password, string fullName, UserRole role)
@@ -152,5 +154,57 @@ public class AuthService : IAuthService
         using var rng = RandomNumberGenerator.Create();
         rng.GetBytes(randomNumber);
         return Convert.ToBase64String(randomNumber);
+    }
+
+    public async Task<string?> GeneratePasswordResetTokenAsync(string usernameOrEmail)
+    {
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == usernameOrEmail || (u.Email != null && u.Email == usernameOrEmail));
+        if (user == null) return null;
+
+        var token = new Random().Next(100000, 999999).ToString();
+        user.ResetToken = token;
+        user.ResetTokenExpiryTime = DateTime.UtcNow.AddMinutes(15);
+        await _context.SaveChangesAsync();
+        
+        // Gửi Mail thật
+        if (!string.IsNullOrEmpty(user.Email))
+        {
+            var subject = "Khôi phục mật khẩu - PROMAX RMS";
+            var body = $@"
+                <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;'>
+                    <div style='text-align: center; margin-bottom: 20px;'>
+                        <h1 style='color: #8b5cf6; margin: 0;'>PROMAX RMS</h1>
+                        <p style='color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 2px;'>Secure Gateway</p>
+                    </div>
+                    <div style='padding: 20px; background-color: #f9fafb; border-radius: 8px;'>
+                        <p>Xin chào <strong>{user.FullName ?? user.Username}</strong>,</p>
+                        <p>Chúng tôi đã nhận được yêu cầu khôi phục mật khẩu cho tài khoản của bạn. Vui lòng sử dụng mã xác nhận dưới đây để đổi mật khẩu mới:</p>
+                        <div style='text-align: center; margin: 30px 0;'>
+                            <span style='font-size: 32px; font-weight: bold; letter-spacing: 10px; color: #1f2937; background: #eee; padding: 10px 20px; border-radius: 5px;'>{token}</span>
+                        </div>
+                        <p style='font-size: 14px; color: #ef4444;'>Lưu ý: Mã này chỉ có hiệu lực trong vòng 15 phút.</p>
+                    </div>
+                    <p style='font-size: 12px; color: #9ca3af; text-align: center; margin-top: 20px;'>
+                        Nếu bạn không yêu cầu mã này, vui lòng bỏ qua email hoặc liên hệ Quản trị viên để được hỗ trợ.
+                    </p>
+                </div>";
+            
+            await _emailService.SendEmailAsync(user.Email, subject, body);
+        }
+        
+        Console.WriteLine($"[EMAIL SENT] Reset Token for {user.Username}: {token}");
+        return token;
+    }
+
+    public async Task<bool> ResetPasswordAsync(string token, string newPassword)
+    {
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.ResetToken == token && u.ResetTokenExpiryTime > DateTime.UtcNow);
+        if (user == null) return false;
+
+        user.PasswordHash = HashPassword(newPassword);
+        user.ResetToken = null;
+        user.ResetTokenExpiryTime = null;
+        await _context.SaveChangesAsync();
+        return true;
     }
 }
