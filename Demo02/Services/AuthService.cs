@@ -134,6 +134,7 @@ public class AuthService : IAuthService
         {
             Subject = new ClaimsIdentity(new[]
             {
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Name, user.Username),
                 new Claim(ClaimTypes.Role, user.Role.ToString())
             }),
@@ -217,5 +218,40 @@ public class AuthService : IAuthService
         user.ResetTokenExpiryTime = null;
         await _context.SaveChangesAsync();
         return true;
+    }
+
+    public async Task<User?> GetByIdAsync(int userId)
+    {
+        return await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+    }
+
+    public async Task<bool> UpdateProfileAsync(int userId, string fullName, string email)
+    {
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null) return false;
+
+        user.FullName = fullName;
+        user.Email = email;
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> ChangePasswordAsync(int userId, string oldPassword, string newPassword)
+    {
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null) return false;
+
+        if (user.PasswordHash != HashPassword(oldPassword)) return false;
+
+        user.PasswordHash = HashPassword(newPassword);
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    private string HashPassword(string password)
+    {
+        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
+        var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
+        return Convert.ToBase64String(hash);
     }
 }

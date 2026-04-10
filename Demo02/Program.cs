@@ -200,19 +200,6 @@ using (var scope = app.Services.CreateScope())
 // Seed Initial Data (Users)
 DataSeeder.SeedUsers(app.Services);
 
-// Temporary: Update admin email for test
-using (var scope = app.Services.CreateScope())
-{
-    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    var admin = context.Users.FirstOrDefault(u => u.Username == "admin");
-    if (admin != null && admin.Email != "doanvanhieu379@gmail.com")
-    {
-        admin.Email = "doanvanhieu379@gmail.com";
-        context.SaveChanges();
-        Console.WriteLine("[DB DEBUG] Updated admin email for testing.");
-    }
-}
-
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {

@@ -11,4 +11,7 @@ public interface IAuthService
     Task RevokeTokenAsync(string username);
     Task<string?> GeneratePasswordResetTokenAsync(string usernameOrEmail);
     Task<bool> ResetPasswordAsync(string token, string newPassword);
+    Task<User?> GetByIdAsync(int userId);
+    Task<bool> UpdateProfileAsync(int userId, string fullName, string email);
+    Task<bool> ChangePasswordAsync(int userId, string oldPassword, string newPassword);
 }

@@ -31,6 +31,7 @@ const navItems = [
   { name: 'Menu', icon: UtensilsCrossed, href: '/admin/menu' },
   { name: 'Reservations', icon: CalendarDays, href: '/admin/reservations' },
   { name: 'Promotions', icon: Tag, href: '/admin/promotions' },
+  { name: 'Profile', icon: Settings, href: '/admin/profile' },
 ];
 
 export default function Sidebar() {
@@ -127,10 +128,6 @@ export default function Sidebar() {
 
         {/* Footer actions */}
         <div className="pt-4 border-t border-white/5 space-y-2">
-          <div className="sidebar-item text-muted-foreground hover:text-white cursor-pointer group">
-             <Settings size={20} />
-             {!isCollapsed && <span className="font-medium">Settings</span>}
-          </div>
           <div 
              onClick={handleLogout}
              className="sidebar-item text-red-400 hover:bg-red-500/10 cursor-pointer group transition-colors"

@@ -31,34 +31,19 @@ public class EmailService : IEmailService
         {
             var server = settings["SmtpServer"];
             var port = int.Parse(settings["Port"]!);
-            var rawUser = settings["SenderEmail"] ?? "MISSING";
-            var rawPass = settings["AppPassword"] ?? "MISSING";
-            
-            // Masking for safety
-            var maskedUser = rawUser.Length > 3 ? rawUser.Substring(0, 3) + "***" : rawUser;
-            var passClean = rawPass.Replace(" ", "");
-            var maskedPass = passClean.Length > 3 ? passClean.Substring(0, 3) + "***" : "TOO_SHORT";
+            var user = settings["SenderEmail"];
+            var pass = settings["AppPassword"]?.Replace(" ", "");
 
-            Console.WriteLine($"[EMAIL SERVICE] Attempting to connect to {server}:{port}...");
-            Console.WriteLine($"[DEBUG HINT] Using account: {maskedUser} | Pass length: {passClean.Length} | Pass starts with: {maskedPass}");
-            
             await smtp.ConnectAsync(server, port, SecureSocketOptions.StartTls);
-            Console.WriteLine("[EMAIL SERVICE] Connected. Attempting to authenticate...");
-            
-            await smtp.AuthenticateAsync(rawUser, passClean);
-            Console.WriteLine("[EMAIL SERVICE] Authenticated successfully. Sending email...");
-            
-            var response = await smtp.SendAsync(email);
-            Console.WriteLine($"[EMAIL SERVICE] Email sent! Server response: {response}");
-            
+            await smtp.AuthenticateAsync(user, pass);
+            await smtp.SendAsync(email);
             await smtp.DisconnectAsync(true);
-            Console.WriteLine($"[EMAIL SERVICE] Disconnected safely.");
+            
+            Console.WriteLine($"[EMAIL SERVICE] Email sent successfully to {toEmail}");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[EMAIL SERVICE ERROR] Failed at some step: {ex.Message}");
-            if (ex.InnerException != null) 
-                Console.WriteLine($"[INNER ERROR] {ex.InnerException.Message}");
+            Console.WriteLine($"[EMAIL SERVICE ERROR] Failed to send email to {toEmail}: {ex.Message}");
             throw; 
         }
     }
