@@ -88,7 +88,7 @@ export default function Sidebar() {
           {navItems.map((item) => {
             const isActive = pathname === item.href;
             return (
-              <Link key={item.href} href={item.href}>
+              <Link key={item.href} href={item.href} prefetch={false}>
                 <div className={cn(
                   "sidebar-item group relative",
                   isActive && "active"
