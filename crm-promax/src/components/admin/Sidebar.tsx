@@ -13,7 +13,8 @@ import {
   ChevronLeft,
   Package,
   CalendarDays,
-  Tag
+  Tag,
+  Loader2
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
