@@ -5,7 +5,9 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Nếu truy cập vào /admin nhưng chưa ở trang login
-  if (pathname.startsWith('/admin') && pathname !== '/admin/login') {
+  const isPublicAdminRoute = pathname === '/admin/login' || pathname === '/admin/forgot-password';
+
+  if (pathname.startsWith('/admin') && !isPublicAdminRoute) {
     // Kiểm tra HttpOnly Cookie "refreshToken" do backend gửi về
     const hasRefreshToken = request.cookies.has('refreshToken');
 

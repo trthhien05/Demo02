@@ -7,6 +7,7 @@ import * as z from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
 import { UtensilsCrossed, Lock, User, ArrowRight, Loader2, Eye, EyeOff } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import apiClient from '@/lib/api-client';
 import { useAuthStore } from '@/lib/auth-store';
 import { toast } from 'sonner';
@@ -165,7 +166,7 @@ export default function LoginPage() {
                 </div>
                 <span className="text-xs text-muted-foreground group-hover:text-white transition-colors font-medium">Remember me</span>
               </label>
-              <a href="/admin/forgot-password" className="text-xs text-primary hover:text-primary/80 transition-colors font-medium">Forgot Password?</a>
+              <Link href="/admin/forgot-password" className="text-xs text-primary hover:text-primary/80 transition-colors font-medium">Forgot Password?</Link>
             </div>
 
             <motion.button

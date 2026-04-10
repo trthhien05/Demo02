@@ -27,9 +27,18 @@ public class EmailService : IEmailService
         email.Body = new TextPart(TextFormat.Html) { Text = htmlMessage };
 
         using var smtp = new SmtpClient();
-        await smtp.ConnectAsync(settings["SmtpServer"], int.Parse(settings["Port"]!), SecureSocketOptions.StartTls);
-        await smtp.AuthenticateAsync(settings["SenderEmail"], settings["AppPassword"]);
-        await smtp.SendAsync(email);
-        await smtp.DisconnectAsync(true);
+        try
+        {
+            await smtp.ConnectAsync(settings["SmtpServer"], int.Parse(settings["Port"]!), SecureSocketOptions.StartTls);
+            await smtp.AuthenticateAsync(settings["SenderEmail"], settings["AppPassword"]);
+            await smtp.SendAsync(email);
+            await smtp.DisconnectAsync(true);
+            Console.WriteLine($"[EMAIL SERVICE] Email sent successfully to {toEmail}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[EMAIL SERVICE ERROR] Failed to send email to {toEmail}: {ex.Message}");
+            throw; // Re-throw to handle in AuthService
+        }
     }
 }

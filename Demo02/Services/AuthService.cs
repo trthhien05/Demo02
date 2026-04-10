@@ -169,30 +169,41 @@ public class AuthService : IAuthService
         // Gửi Mail thật
         if (!string.IsNullOrEmpty(user.Email))
         {
-            var subject = "Khôi phục mật khẩu - PROMAX RMS";
-            var body = $@"
-                <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;'>
-                    <div style='text-align: center; margin-bottom: 20px;'>
-                        <h1 style='color: #8b5cf6; margin: 0;'>PROMAX RMS</h1>
-                        <p style='color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 2px;'>Secure Gateway</p>
-                    </div>
-                    <div style='padding: 20px; background-color: #f9fafb; border-radius: 8px;'>
-                        <p>Xin chào <strong>{user.FullName ?? user.Username}</strong>,</p>
-                        <p>Chúng tôi đã nhận được yêu cầu khôi phục mật khẩu cho tài khoản của bạn. Vui lòng sử dụng mã xác nhận dưới đây để đổi mật khẩu mới:</p>
-                        <div style='text-align: center; margin: 30px 0;'>
-                            <span style='font-size: 32px; font-weight: bold; letter-spacing: 10px; color: #1f2937; background: #eee; padding: 10px 20px; border-radius: 5px;'>{token}</span>
+            try 
+            {
+                var subject = "Khôi phục mật khẩu - PROMAX RMS";
+                var body = $@"
+                    <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;'>
+                        <div style='text-align: center; margin-bottom: 20px;'>
+                            <h1 style='color: #8b5cf6; margin: 0;'>PROMAX RMS</h1>
+                            <p style='color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 2px;'>Secure Gateway</p>
                         </div>
-                        <p style='font-size: 14px; color: #ef4444;'>Lưu ý: Mã này chỉ có hiệu lực trong vòng 15 phút.</p>
-                    </div>
-                    <p style='font-size: 12px; color: #9ca3af; text-align: center; margin-top: 20px;'>
-                        Nếu bạn không yêu cầu mã này, vui lòng bỏ qua email hoặc liên hệ Quản trị viên để được hỗ trợ.
-                    </p>
-                </div>";
-            
-            await _emailService.SendEmailAsync(user.Email, subject, body);
+                        <div style='padding: 20px; background-color: #f9fafb; border-radius: 8px;'>
+                            <p>Xin chào <strong>{user.FullName ?? user.Username}</strong>,</p>
+                            <p>Chúng tôi đã nhận được yêu cầu khôi phục mật khẩu cho tài khoản của bạn. Vui lòng sử dụng mã xác nhận dưới đây để đổi mật khẩu mới:</p>
+                            <div style='text-align: center; margin: 30px 0;'>
+                                <span style='font-size: 32px; font-weight: bold; letter-spacing: 10px; color: #1f2937; background: #eee; padding: 10px 20px; border-radius: 5px;'>{token}</span>
+                            </div>
+                            <p style='font-size: 14px; color: #ef4444;'>Lưu ý: Mã này chỉ có hiệu lực trong vòng 15 phút.</p>
+                        </div>
+                        <p style='font-size: 12px; color: #9ca3af; text-align: center; margin-top: 20px;'>
+                            Nếu bạn không yêu cầu mã này, vui lòng bỏ qua email hoặc liên hệ Quản trị viên để được hỗ trợ.
+                        </p>
+                    </div>";
+                
+                await _emailService.SendEmailAsync(user.Email, subject, body);
+                Console.WriteLine($"[AUTH SERVICE] Email sent to {user.Email} for user {user.Username}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[AUTH SERVICE ERROR] Could not send reset email to {user.Email}: {ex.Message}");
+            }
+        }
+        else
+        {
+            Console.WriteLine($"[AUTH SERVICE WARNING] User '{user.Username}' (ID: {user.Id}) does not have an Email address set. Reset token generated but not sent.");
         }
         
-        Console.WriteLine($"[EMAIL SENT] Reset Token for {user.Username}: {token}");
         return token;
     }
 
