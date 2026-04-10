@@ -18,6 +18,10 @@ public class UsersController : ControllerBase
         _authService = authService;
     }
 
+    [AllowAnonymous]
+    [HttpGet("ping")]
+    public IActionResult Ping() => Ok("UsersController is alive!");
+
     [HttpGet("profile")]
     public async Task<IActionResult> GetProfile()
     {

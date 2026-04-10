@@ -248,10 +248,4 @@ public class AuthService : IAuthService
         return true;
     }
 
-    private string HashPassword(string password)
-    {
-        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
-        var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
-        return Convert.ToBase64String(hash);
-    }
 }
