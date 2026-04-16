@@ -88,10 +88,10 @@ export default function AdminDashboard() {
   }));
 
   const stats = [
-    { label: 'Today Revenue', value: `$${todayRevenue.toLocaleString()}`, trend: 'Live', icon: DollarSign, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
-    { label: 'Active Tables', value: `${activeTablesCount}/${totalTablesCount}`, trend: `${Math.round((activeTablesCount/totalTablesCount)*100)}%`, icon: ShoppingCart, color: 'text-primary', bg: 'bg-primary/10' },
-    { label: 'Total Guests VIP', value: customerSummary?.totalCustomers?.toLocaleString() || '0', trend: 'CRM', icon: Users, color: 'text-blue-400', bg: 'bg-blue-400/10' },
-    { label: 'Avg Check', value: `$${avgCheck.toFixed(2)}`, trend: 'Order', icon: TrendingUp, color: 'text-orange-400', bg: 'bg-orange-400/10' },
+    { label: 'Doanh Thu Hôm Nay', value: `$${todayRevenue.toLocaleString()}`, trend: 'Live', icon: DollarSign, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
+    { label: 'Bàn Hoạt Động', value: `${activeTablesCount}/${totalTablesCount}`, trend: `${Math.round((activeTablesCount/totalTablesCount)*100)}%`, icon: ShoppingCart, color: 'text-primary', bg: 'bg-primary/10' },
+    { label: 'Khách VIP', value: customerSummary?.totalCustomers?.toLocaleString() || '0', trend: 'CRM', icon: Users, color: 'text-blue-400', bg: 'bg-blue-400/10' },
+    { label: 'Hóa Đơn TB', value: `$${avgCheck.toFixed(2)}`, trend: 'Order', icon: TrendingUp, color: 'text-orange-400', bg: 'bg-orange-400/10' },
   ];
 
   return (
@@ -102,14 +102,14 @@ export default function AdminDashboard() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <span className="text-primary font-bold text-xs uppercase tracking-[0.2em]">Management Overview</span>
-          <h1 className="text-4xl font-black mt-2 tracking-tight">Performance <span className="title-gradient bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">Hub</span></h1>
+          <span className="text-primary font-bold text-xs uppercase tracking-[0.2em]">Tổng Quan Quản Lý</span>
+          <h1 className="text-4xl font-black mt-2 tracking-tight">Trung Tâm <span className="title-gradient bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">Hiệu Suất</span></h1>
         </motion.div>
 
         <div className="flex gap-4">
           <button className="flex items-center gap-2 px-6 py-3 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 transition-all font-bold text-sm">
             <Filter size={18} />
-            Filters
+            Bộ Lọc
           </button>
           {/* VIP Export Button Area */}
           <motion.button 
@@ -119,7 +119,7 @@ export default function AdminDashboard() {
           >
             <div className="bg-background/90 rounded-[15px] px-6 py-3 flex items-center gap-3">
               <Download size={18} className="text-primary group-hover:-translate-y-1 transition-transform" />
-              <span className="text-sm font-bold">Export Report</span>
+              <span className="text-sm font-bold">Xuất Báo Cáo</span>
             </div>
           </motion.button>
         </div>
@@ -167,13 +167,13 @@ export default function AdminDashboard() {
         >
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h3 className="text-xl font-bold">Revenue Analytics</h3>
-              <p className="text-xs text-muted-foreground mt-1">Daily income tracking vs past week</p>
+              <h3 className="text-xl font-bold">Phân Tích Doanh Thu</h3>
+              <p className="text-xs text-muted-foreground mt-1">Theo dõi thu nhập hàng ngày so với tuần trước</p>
             </div>
             <div className="flex items-center gap-6">
                <div className="flex items-center gap-2">
                  <div className="w-3 h-3 rounded-full bg-primary" />
-                 <span className="text-xs font-bold">Gross Revenue</span>
+                 <span className="text-xs font-bold">Tổng Doanh Thu</span>
                </div>
             </div>
           </div>
@@ -226,11 +226,11 @@ export default function AdminDashboard() {
               </ResponsiveContainer>
             ) : (
                <div className="w-full h-full flex flex-col items-center justify-center opacity-50">
-                  <span className="text-sm">Not enough revenue data to draw chart</span>
+                  <span className="text-sm">Chưa đủ dữ liệu để vẽ biểu đồ</span>
                </div>
             ) : (
               <div className="w-full h-full bg-white/5 animate-pulse rounded-2xl flex items-center justify-center text-muted-foreground text-xs">
-                Preparing Analytics...
+                Đang Chuẩn Bị Dữ Liệu...
               </div>
             )}
           </div>

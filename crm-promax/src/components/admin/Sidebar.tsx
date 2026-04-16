@@ -24,14 +24,14 @@ import { useAuthStore } from '@/lib/auth-store';
 import { toast } from 'sonner';
 
 const navItems = [
-  { name: 'Dashboard', icon: LayoutDashboard, href: '/admin' },
-  { name: 'Orders', icon: ShoppingCart, href: '/admin/orders' },
-  { name: 'Customers', icon: Users, href: '/admin/customers' },
-  { name: 'Inventory', icon: Package, href: '/admin/inventory' },
-  { name: 'Menu', icon: UtensilsCrossed, href: '/admin/menu' },
-  { name: 'Reservations', icon: CalendarDays, href: '/admin/reservations' },
-  { name: 'Promotions', icon: Tag, href: '/admin/promotions' },
-  { name: 'Profile', icon: Settings, href: '/admin/profile' },
+  { name: 'Tổng Quan', icon: LayoutDashboard, href: '/admin' },
+  { name: 'Đơn Hàng', icon: ShoppingCart, href: '/admin/orders' },
+  { name: 'Khách Hàng', icon: Users, href: '/admin/customers' },
+  { name: 'Kho Hàng', icon: Package, href: '/admin/inventory' },
+  { name: 'Thực Đơn', icon: UtensilsCrossed, href: '/admin/menu' },
+  { name: 'Đặt Bàn', icon: CalendarDays, href: '/admin/reservations' },
+  { name: 'Khuyến Mãi', icon: Tag, href: '/admin/promotions' },
+  { name: 'Tài Khoản', icon: Settings, href: '/admin/profile' },
 ];
 
 export default function Sidebar() {
@@ -133,7 +133,7 @@ export default function Sidebar() {
              className="sidebar-item text-red-400 hover:bg-red-500/10 cursor-pointer group transition-colors"
           >
              {isLoggingOut ? <Loader2 size={20} className="animate-spin" /> : <LogOut size={20} />}
-             {!isCollapsed && <span className="font-medium">{isLoggingOut ? "Logging out..." : "Sign Out"}</span>}
+             {!isCollapsed && <span className="font-medium">{isLoggingOut ? "Đang đăng xuất..." : "Đăng Xuất"}</span>}
           </div>
         </div>
       </div>

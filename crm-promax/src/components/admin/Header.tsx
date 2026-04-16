@@ -12,7 +12,7 @@ export default function Header() {
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
         <input 
           type="text" 
-          placeholder="Search for orders, diners or reports... (Ctrl+K)" 
+          placeholder="Tìm kiếm đơn hàng, khách hoặc báo cáo... (Ctrl+K)" 
           className="w-full bg-white/5 border border-white/10 rounded-2xl py-2.5 pl-12 pr-4 outline-none focus:border-primary/50 transition-all text-sm"
         />
       </div>
@@ -32,7 +32,7 @@ export default function Header() {
         >
           <div className="text-right">
             <p className="text-sm font-bold">Admin ProMax</p>
-            <p className="text-[10px] text-primary font-bold uppercase tracking-wider">Manager</p>
+            <p className="text-[10px] text-primary font-bold uppercase tracking-wider">Quản lý</p>
           </div>
           <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary to-accent p-0.5">
             <div className="w-full h-full rounded-[10px] bg-background flex items-center justify-center">

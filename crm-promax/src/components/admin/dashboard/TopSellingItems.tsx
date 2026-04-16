@@ -26,21 +26,21 @@ export default function TopSellingItems() {
         <div>
           <h3 className="font-bold text-xl flex items-center gap-2">
             <Award className="text-orange-400" size={24} />
-            Top Selling
+            Bán Chạy Nhất
           </h3>
-          <p className="text-xs text-muted-foreground mt-1">Highest volume menu items</p>
+          <p className="text-xs text-muted-foreground mt-1">Các món ăn bán được nhiều nhất</p>
         </div>
       </div>
 
       <div className="space-y-4 flex-1">
         {isLoading ? (
           <div className="h-full flex items-center justify-center">
-            <span className="text-sm text-muted-foreground animate-pulse">Loading analytics...</span>
+            <span className="text-sm text-muted-foreground animate-pulse">Đang tải dữ liệu...</span>
           </div>
         ) : topItems.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center opacity-50">
             <Package size={32} className="mb-2" />
-            <span className="text-sm text-muted-foreground">No sales data yet</span>
+            <span className="text-sm text-muted-foreground">Chưa có dữ liệu bán hàng</span>
           </div>
         ) : (
           topItems.map((item, idx) => (
@@ -60,12 +60,12 @@ export default function TopSellingItems() {
                 </div>
                 <div className="min-w-0">
                   <h4 className="font-bold text-sm truncate pr-2 group-hover:text-orange-400 transition-colors tooltip">{item.itemName}</h4>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold mt-1">Culinary</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold mt-1">Ẩm Thực</p>
                 </div>
               </div>
               
               <div className="text-right shrink-0 ml-4">
-                <p className="font-black text-sm text-foreground">{item.quantity} <span className="text-xs text-muted-foreground font-normal">sold</span></p>
+                <p className="font-black text-sm text-foreground">{item.quantity} <span className="text-xs text-muted-foreground font-normal">đã bán</span></p>
               </div>
             </motion.div>
           ))

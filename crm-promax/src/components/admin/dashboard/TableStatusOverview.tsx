@@ -62,9 +62,9 @@ export default function TableStatusOverview() {
     const reserved = tables.filter(t => t.status === 'Reserved').length;
 
     return [
-      { label: 'Occupied', count: occupied, color: 'text-primary', bg: 'bg-primary/20', border: 'border-primary/30', glow: 'shadow-primary/20' },
-      { label: 'Available', count: available, color: 'text-emerald-400', bg: 'bg-emerald-400/20', border: 'border-emerald-400/30', glow: 'shadow-emerald-400/20' },
-      { label: 'Reserved', count: reserved, color: 'text-orange-400', bg: 'bg-orange-400/20', border: 'border-orange-400/30', glow: 'shadow-orange-400/20' },
+      { label: 'Có Khách', count: occupied, color: 'text-primary', bg: 'bg-primary/20', border: 'border-primary/30', glow: 'shadow-primary/20' },
+      { label: 'Bàn Trống', count: available, color: 'text-emerald-400', bg: 'bg-emerald-400/20', border: 'border-emerald-400/30', glow: 'shadow-emerald-400/20' },
+      { label: 'Đã Đặt', count: reserved, color: 'text-orange-400', bg: 'bg-orange-400/20', border: 'border-orange-400/30', glow: 'shadow-orange-400/20' },
     ];
   }, [tables]);
 
@@ -76,7 +76,7 @@ export default function TableStatusOverview() {
     return (
       <div className="glass rounded-[2rem] p-8 border-white/5 h-full flex flex-col items-center justify-center">
          <Loader2 className="animate-spin text-primary w-8 h-8 mb-4" />
-         <p className="text-sm text-muted-foreground animate-pulse">Syncing floor plan...</p>
+         <p className="text-sm text-muted-foreground animate-pulse">Đang tải sơ đồ...</p>
       </div>
     );
   }
@@ -84,7 +84,7 @@ export default function TableStatusOverview() {
   if (isError) {
     return (
       <div className="glass rounded-[2rem] p-8 border-white/5 h-full flex items-center justify-center">
-         <p className="text-sm text-red-400">Failed to load table data</p>
+         <p className="text-sm text-red-400">Lỗi tải dữ liệu bàn</p>
       </div>
     );
   }
@@ -95,9 +95,9 @@ export default function TableStatusOverview() {
          <div>
             <h3 className="font-bold text-xl flex items-center gap-2">
                <LayoutGrid className="text-emerald-400" size={24} />
-               Floor Plan
+               Sơ Đồ Bàn
             </h3>
-            <p className="text-xs text-muted-foreground mt-1">Live table occupancy</p>
+            <p className="text-xs text-muted-foreground mt-1">Trạng thái bàn trực tiếp</p>
          </div>
          {connection && connection.state === 'Connected' && (
            <span className="flex h-3 w-3 relative">
@@ -130,7 +130,7 @@ export default function TableStatusOverview() {
          <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
             <Armchair className="text-primary/50 mb-1" size={24} />
             <span className="text-3xl font-black">{occupancyRate}%</span>
-            <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mt-1">Full</span>
+            <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mt-1">Tỷ Lệ</span>
          </div>
       </div>
 
