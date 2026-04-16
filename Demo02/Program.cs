@@ -104,8 +104,8 @@ builder.Services.AddRateLimiter(options =>
             partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
             factory: _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 5,
-                Window = TimeSpan.FromMinutes(15),
+                PermitLimit = 100, // Tăng lên 100 cho phép thư thả testing
+                Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0
             }));
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
