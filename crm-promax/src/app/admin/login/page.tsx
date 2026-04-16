@@ -52,7 +52,7 @@ export default function LoginPage() {
       });
 
       // Lưu in-memory Access Token
-      setAuth(res.data.Token);
+      setAuth(res.data.token);
 
       // Xử lý Remember Me (chỉ lưu Username cho lần sau)
       if (data.rememberMe) {

@@ -29,14 +29,14 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
       try {
         const res = await apiClient.post('/auth/refresh');
         if (isMounted) {
-          setAuth(res.data.Token);
+          setAuth(res.data.token);
           setIsInitializing(false);
         }
       } catch (error) {
         if (isMounted) {
           clearAuth();
           toast.error("Phiên đăng nhập đã hết hạn", { description: "Vui lòng đăng nhập lại." });
-          router.push('/admin/login');
+          window.location.href = '/admin/login'; // Hard redirect to kill loading state
         }
       }
     };
