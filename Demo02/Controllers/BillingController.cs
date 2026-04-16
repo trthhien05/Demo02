@@ -55,37 +55,53 @@ public class BillingController : ControllerBase
     [HttpPost("pay")]
     public async Task<IActionResult> ProcessPayment([FromBody] Invoice invoice)
     {
-        var order = await _context.Orders.Include(o => o.DiningTable).FirstOrDefaultAsync(o => o.Id == invoice.OrderId);
-        if (order == null) return NotFound("Đơn hàng không tồn tại");
-
-        // 1. Lưu hóa đơn
-        invoice.IssuedAt = DateTime.UtcNow;
-        invoice.Status = InvoiceStatus.Paid;
-        _context.Invoices.Add(invoice);
-
-        // 2. Cập nhật trạng thái đơn hàng và bàn
-        order.Status = OrderStatus.Completed;
-        order.DiningTable.Status = TableStatus.Available;
-
-        await _context.SaveChangesAsync();
-
-        // 3. Trừ kho nguyên liệu (Deduct Inventory)
-        await _inventoryService.DeductStockAsync(invoice.OrderId);
-
-        // 4. Tích lũy điểm Loyalty (nếu có khách hàng)
-        if (invoice.CustomerId.HasValue)
+        using var transaction = await _context.Database.BeginTransactionAsync();
+        try
         {
-            var customer = await _context.Customers.FindAsync(invoice.CustomerId.Value);
-            if (customer != null)
+            var order = await _context.Orders.Include(o => o.DiningTable).FirstOrDefaultAsync(o => o.Id == invoice.OrderId);
+            if (order == null) return NotFound("Đơn hàng không tồn tại");
+
+            // 1. Lưu hóa đơn
+            invoice.IssuedAt = DateTime.UtcNow;
+            invoice.Status = InvoiceStatus.Paid;
+            _context.Invoices.Add(invoice);
+
+            // 2. Cập nhật trạng thái đơn hàng và bàn
+            order.Status = OrderStatus.Completed;
+            order.DiningTable.Status = TableStatus.Available;
+
+            await _context.SaveChangesAsync();
+
+            // 3. Trừ kho nguyên liệu (Deduct Inventory)
+            var deductSuccess = await _inventoryService.DeductStockAsync(invoice.OrderId);
+            if (!deductSuccess)
             {
-                await _loyaltyService.AddPointsFromInvoiceAsync(customer.PhoneNumber, invoice.FinalAmount, $"Invoice_{invoice.Id}");
+                await transaction.RollbackAsync();
+                return BadRequest("Không thể trừ kho, vui lòng kiểm tra lại nguyên vật liệu.");
             }
+
+            // 4. Tích lũy điểm Loyalty (nếu có khách hàng)
+            if (invoice.CustomerId.HasValue)
+            {
+                var customer = await _context.Customers.FindAsync(invoice.CustomerId.Value);
+                if (customer != null)
+                {
+                    await _loyaltyService.AddPointsFromInvoiceAsync(customer.PhoneNumber, invoice.FinalAmount, $"Invoice_{invoice.Id}");
+                }
+            }
+
+            await transaction.CommitAsync();
+
+            // 5. SignalR: Cập nhật sơ đồ bàn và thông báo
+            await _hubContext.Clients.All.SendAsync("TableStatusChanged", order.DiningTableId, "Available");
+            await _hubContext.Clients.All.SendAsync("ReceiveNotification", "Thu ngân", $"Bàn {order.DiningTable.TableNumber} đã thanh toán thành công!");
+
+            return Ok(invoice);
         }
-
-        // 4. SignalR: Cập nhật sơ đồ bàn và thông báo
-        await _hubContext.Clients.All.SendAsync("TableStatusChanged", order.DiningTableId, "Available");
-        await _hubContext.Clients.All.SendAsync("ReceiveNotification", "Thu ngân", $"Bàn {order.DiningTable.TableNumber} đã thanh toán thành công!");
-
-        return Ok(invoice);
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            return StatusCode(500, $"Lỗi server khi thanh toán: {ex.Message}");
+        }
     }
 }
