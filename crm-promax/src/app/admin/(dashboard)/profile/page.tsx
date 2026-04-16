@@ -88,23 +88,30 @@ export default function ProfilePage() {
 
     setIsUploadingAvatar(true);
     const formData = new FormData();
-    formData.append('image', file);
+    formData.append('file', file);
+    
+    // Yêu cầu: Bạn cần thay "TENDIENTHOAICUABAN" bằng Cloud Name của bạn 
+    // và "UPLOAD_PRESET" bằng Preset Name trong phần Settings -> Upload của Cloudinary.
+    const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'demo';
+    const UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'docs_upload_preset';
+    
+    formData.append('upload_preset', UPLOAD_PRESET);
 
     try {
-      // Dùng ImgBB API Public Key ẩn cho Demo, có thể thay đổi trong môi trường thật
-      const res = await fetch('https://api.imgbb.com/1/upload?key=e080ea4c68ff8bb2c6e61f2fde2a4eb2', {
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
         method: 'POST',
         body: formData
       });
       const data = await res.json();
-      if (data.success) {
-        profileForm.setValue('avatarUrl', data.data.url, { shouldDirty: true });
+      
+      if (data.secure_url) {
+        profileForm.setValue('avatarUrl', data.secure_url, { shouldDirty: true });
         onProfileSubmit(profileForm.getValues());
       } else {
-        toast.error("Lỗi tải ảnh lên Cloud.");
+        toast.error("Lỗi tải ảnh lên Cloudinary: " + (data.error?.message || 'Unknown error'));
       }
     } catch {
-      toast.error("Không thể kết nối đến máy chủ ảnh.");
+      toast.error("Không thể kết nối đến máy chủ Cloudinary.");
     } finally {
       setIsUploadingAvatar(false);
     }
