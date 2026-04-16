@@ -7,7 +7,8 @@ import {
   ShoppingCart, 
   DollarSign, 
   Filter,
-  Download
+  Download,
+  Loader2
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { 
@@ -23,24 +24,8 @@ import { cn } from '@/lib/utils';
 import TopSellingItems from '@/components/admin/dashboard/TopSellingItems';
 import RecentOrdersTable from '@/components/admin/dashboard/RecentOrdersTable';
 import TableStatusOverview from '@/components/admin/dashboard/TableStatusOverview';
-
-// Mẫu dữ liệu cho biểu đồ Doanh thu ProMax
-const revenueData = [
-  { name: 'Mon', revenue: 4500, expenses: 3200 },
-  { name: 'Tue', revenue: 5200, expenses: 3400 },
-  { name: 'Wed', revenue: 4800, expenses: 3100 },
-  { name: 'Thu', revenue: 6100, expenses: 4000 },
-  { name: 'Fri', revenue: 5900, expenses: 3800 },
-  { name: 'Sat', revenue: 8200, expenses: 5000 },
-  { name: 'Sun', revenue: 7500, expenses: 4800 },
-];
-
-const stats = [
-  { label: 'Today Revenue', value: '$8,420', trend: '+12.5%', icon: DollarSign, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
-  { label: 'Active Tables', value: '18/24', trend: '75%', icon: ShoppingCart, color: 'text-primary', bg: 'bg-primary/10' },
-  { label: 'Total Guests', value: '1,240', trend: '+5.2%', icon: Users, color: 'text-blue-400', bg: 'bg-blue-400/10' },
-  { label: 'Avg Check', value: '$68.5', trend: '+2.1%', icon: TrendingUp, color: 'text-orange-400', bg: 'bg-orange-400/10' },
-];
+import { useQuery } from '@tanstack/react-query';
+import apiClient from '@/lib/api-client';
 
 export default function AdminDashboard() {
   const [isMounted, setIsMounted] = React.useState(false);
@@ -48,6 +33,66 @@ export default function AdminDashboard() {
   React.useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  // 1. Revenue Stats (7 days)
+  const { data: revenueStats = [] } = useQuery({
+    queryKey: ['revenue-stats'],
+    queryFn: async () => {
+      const res = await apiClient.get('/reports/revenue-stats');
+      return res.data;
+    }
+  });
+
+  // 2. Customer Summary
+  const { data: customerSummary } = useQuery({
+    queryKey: ['customer-summary'],
+    queryFn: async () => {
+      const res = await apiClient.get('/reports/customer-summary');
+      return res.data;
+    }
+  });
+
+  // 3. Tables
+  const { data: tables = [] } = useQuery({
+    queryKey: ['diningTables'], // shared cache
+    queryFn: async () => {
+      const res = await apiClient.get('/table');
+      return res.data;
+    }
+  });
+
+  // 4. Orders
+  const { data: orders = [] } = useQuery({
+    queryKey: ['orders-metrics'],
+    queryFn: async () => {
+      const res = await apiClient.get('/order');
+      return res.data;
+    }
+  });
+
+  // Calculate Metrics
+  const activeTablesCount = tables.filter((t: any) => t.status === 'Occupied' || t.status === 'Cleaning').length;
+  const totalTablesCount = tables.length || 1;
+  const todayRevenue = revenueStats.length > 0 ? revenueStats[revenueStats.length - 1].amount : 0;
+  
+  let avgCheck = 0;
+  if (orders.length > 0) {
+    const totalAmount = orders.reduce((sum: number, o: any) => sum + (o.totalAmount || 0), 0);
+    avgCheck = totalAmount / orders.length;
+  }
+
+  // Format Recharts data
+  const chartData = revenueStats.map((item: any) => ({
+    name: new Date(item.date).toLocaleDateString('en-US', { weekday: 'short' }),
+    revenue: item.amount,
+  }));
+
+  const stats = [
+    { label: 'Today Revenue', value: `$${todayRevenue.toLocaleString()}`, trend: 'Live', icon: DollarSign, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
+    { label: 'Active Tables', value: `${activeTablesCount}/${totalTablesCount}`, trend: `${Math.round((activeTablesCount/totalTablesCount)*100)}%`, icon: ShoppingCart, color: 'text-primary', bg: 'bg-primary/10' },
+    { label: 'Total Guests VIP', value: customerSummary?.totalCustomers?.toLocaleString() || '0', trend: 'CRM', icon: Users, color: 'text-blue-400', bg: 'bg-blue-400/10' },
+    { label: 'Avg Check', value: `$${avgCheck.toFixed(2)}`, trend: 'Order', icon: TrendingUp, color: 'text-orange-400', bg: 'bg-orange-400/10' },
+  ];
 
   return (
     <div className="space-y-8 pb-10">
@@ -88,14 +133,14 @@ export default function AdminDashboard() {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: idx * 0.1 }}
-            className="stat-card relative overflow-hidden bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl p-6 rounded-3xl transition-all hover:scale-[1.02] hover:shadow-primary/20 group"
+            className="stat-card relative overflow-hidden bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl p-6 rounded-3xl transition-all hover:scale-[1.02] hover:shadow-primary/20 group cursor-default"
           >
             <div className="flex items-start justify-between">
               <div className={cn("p-4 rounded-2xl transition-transform group-hover:scale-110", stat.bg, stat.color)}>
                 <stat.icon size={24} />
               </div>
               <div className="flex items-center gap-1 text-[10px] font-bold py-1 px-2 rounded-full border border-white/10 text-muted-foreground bg-white/5">
-                <TrendingUp size={12} className={stat.trend.includes('-') ? 'text-red-400 rotate-180' : 'text-emerald-400'} />
+                <TrendingUp size={12} className={stat.trend === 'Live' ? 'text-emerald-400' : 'text-primary'} />
                 {stat.trend}
               </div>
             </div>
@@ -123,24 +168,20 @@ export default function AdminDashboard() {
           <div className="flex items-center justify-between mb-8">
             <div>
               <h3 className="text-xl font-bold">Revenue Analytics</h3>
-              <p className="text-xs text-muted-foreground mt-1">Daily income and expense tracking vs past week</p>
+              <p className="text-xs text-muted-foreground mt-1">Daily income tracking vs past week</p>
             </div>
             <div className="flex items-center gap-6">
                <div className="flex items-center gap-2">
                  <div className="w-3 h-3 rounded-full bg-primary" />
-                 <span className="text-xs font-bold">Revenue</span>
-               </div>
-               <div className="flex items-center gap-2">
-                 <div className="w-3 h-3 rounded-full bg-slate-500" />
-                 <span className="text-xs font-bold">Expenses</span>
+                 <span className="text-xs font-bold">Gross Revenue</span>
                </div>
             </div>
           </div>
 
           <div className="h-[320px] w-full" style={{ minHeight: '320px', minWidth: '0' }}>
-            {isMounted ? (
+            {isMounted ? chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={revenueData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.5}/>
@@ -181,16 +222,12 @@ export default function AdminDashboard() {
                     fill="url(#colorRev)" 
                     activeDot={{ r: 6, strokeWidth: 0, fill: '#8b5cf6' }}
                   />
-                  <Area 
-                    type="monotone" 
-                    dataKey="expenses" 
-                    stroke="#64748b" 
-                    strokeWidth={2}
-                    strokeDasharray="5 5"
-                    fill="transparent"
-                  />
                 </AreaChart>
               </ResponsiveContainer>
+            ) : (
+               <div className="w-full h-full flex flex-col items-center justify-center opacity-50">
+                  <span className="text-sm">Not enough revenue data to draw chart</span>
+               </div>
             ) : (
               <div className="w-full h-full bg-white/5 animate-pulse rounded-2xl flex items-center justify-center text-muted-foreground text-xs">
                 Preparing Analytics...

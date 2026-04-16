@@ -1,11 +1,12 @@
 'use client';
 
-import React from 'react';
-import { motion } from 'framer-motion';
-import { ShoppingCart, Plus, Filter, Search, Loader2, Clock, CheckCircle2, ChefHat, RotateCcw } from 'lucide-react';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ShoppingCart, Plus, Filter, Search, Loader2, Clock, CheckCircle2, ChefHat, RotateCcw, Receipt } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 import { cn } from '@/lib/utils';
+import CheckoutModal from '@/components/admin/orders/CheckoutModal';
 
 // Maps to .NET Enums
 type OrderStatus = 0 | 1 | 2 | 3 | 4; 
@@ -42,6 +43,8 @@ const STATUS_MAP: Record<number, { label: string, color: string, icon: React.Rea
 };
 
 export default function OrdersPage() {
+  const [checkoutTarget, setCheckoutTarget] = useState<{ id: number, tableNumber: string } | null>(null);
+
   const { data: orders = [], isLoading } = useQuery<Order[]>({
     queryKey: ['orders'],
     queryFn: async () => {
@@ -96,57 +99,93 @@ export default function OrdersPage() {
          </div>
       ) : (
          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {orders.map((order, idx) => {
-               const status = STATUS_MAP[order.status] || STATUS_MAP[0];
-               return (
-                 <motion.div 
-                   key={order.id}
-                   initial={{ opacity: 0, scale: 0.9 }}
-                   animate={{ opacity: 1, scale: 1 }}
-                   transition={{ delay: idx * 0.05 }}
-                   className="glass rounded-[1.5rem] p-6 border-white/5 hover:border-primary/30 transition-colors shadow-2xl relative overflow-hidden group"
-                 >
-                   <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/20 transition-colors" />
-                   
-                   <div className="flex items-start justify-between mb-4 relative z-10">
-                      <div>
-                         <h3 className="text-2xl font-black">Table {order.diningTable.tableNumber}</h3>
-                         <p className="text-xs text-muted-foreground font-mono mt-1">ORD-#{order.id.toString().padStart(5, '0')}</p>
-                      </div>
-                      <div className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-wider", status.color)}>
-                         {status.icon}
-                         {status.label}
-                      </div>
-                   </div>
-
-                   <div className="space-y-3 mb-6 relative z-10">
-                      {order.orderItems.slice(0, 3).map((item, i) => (
-                         <div key={i} className="flex justify-between items-center text-sm">
-                            <span className="text-muted-foreground flex items-center gap-2">
-                               <span className="text-foreground/50 text-xs">x{item.quantity}</span> 
-                               {item.menuItem.name}
-                            </span>
-                            <span className="font-medium font-mono">${(item.unitPrice * item.quantity).toFixed(2)}</span>
-                         </div>
-                      ))}
-                      {order.orderItems.length > 3 && (
-                         <div className="text-xs text-primary font-bold italic">
-                            + {order.orderItems.length - 3} more items...
-                         </div>
+            <AnimatePresence>
+               {orders.map((order, idx) => {
+                  const status = STATUS_MAP[order.status] || STATUS_MAP[0];
+                  // If Served (2), it is ready for checkout!
+                  const isCheckoutReady = order.status === 2 || order.status === 3;
+                  
+                  return (
+                    <motion.div 
+                      key={order.id}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      transition={{ delay: idx * 0.05 }}
+                      className={cn(
+                         "glass rounded-[1.5rem] p-6 border-white/5 transition-all shadow-2xl relative overflow-hidden group hover:-translate-y-1",
+                         isCheckoutReady ? "hover:border-emerald-500/50 hover:shadow-[0_10px_30px_rgba(16,185,129,0.15)]" : "hover:border-primary/30"
                       )}
-                   </div>
-
-                   <div className="pt-4 border-t border-white/10 flex items-center justify-between relative z-10">
-                      <div className="text-xs text-muted-foreground">Total Amount</div>
-                      <div className="text-xl font-black bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
-                         ${order.totalAmount.toFixed(2)}
+                    >
+                      <div className={cn("absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl transition-colors",
+                         isCheckoutReady ? "bg-emerald-500/5 group-hover:bg-emerald-500/20" : "bg-primary/5 group-hover:bg-primary/20"
+                      )} />
+                      
+                      <div className="flex items-start justify-between mb-4 relative z-10">
+                         <div>
+                            <h3 className="text-2xl font-black">Table {order.diningTable?.tableNumber || '?'}</h3>
+                            <p className="text-xs text-muted-foreground font-mono mt-1">ORD-#{order.id.toString().padStart(5, '0')}</p>
+                         </div>
+                         <div className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-wider bg-background/50 backdrop-blur-md", status.color)}>
+                            {status.icon}
+                            {status.label}
+                         </div>
                       </div>
-                   </div>
-                 </motion.div>
-               );
-            })}
+
+                      <div className="space-y-3 mb-6 relative z-10 min-h-[100px]">
+                         {order.orderItems?.slice(0, 3).map((item, i) => (
+                            <div key={i} className="flex justify-between items-center text-sm">
+                               <span className="text-muted-foreground flex items-center gap-2">
+                                  <span className="text-foreground/50 text-xs font-mono">x{item.quantity}</span> 
+                                  <span className="truncate max-w-[120px]">{item.menuItem?.name || 'Item'}</span>
+                               </span>
+                               <span className="font-medium font-mono">${((item.unitPrice || 0) * (item.quantity || 1)).toFixed(2)}</span>
+                            </div>
+                         ))}
+                         {order.orderItems?.length > 3 && (
+                            <div className="text-xs text-primary font-bold italic">
+                               + {order.orderItems.length - 3} more items...
+                            </div>
+                         )}
+                      </div>
+
+                      <div className="pt-4 border-t border-white/10 flex flex-col gap-4 relative z-10">
+                         <div className="flex items-center justify-between">
+                            <div className="text-xs text-muted-foreground font-medium uppercase tracking-widest">Total</div>
+                            <div className="text-xl font-black font-mono tracking-tighter">
+                               ${order.totalAmount?.toFixed(2) || '0.00'}
+                            </div>
+                         </div>
+                         
+                         {isCheckoutReady && order.status !== 3 && (
+                            <button 
+                               onClick={() => setCheckoutTarget({ id: order.id, tableNumber: order.diningTable?.tableNumber || '?' })}
+                               className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors border border-emerald-400 border-b-4 active:border-b active:translate-y-[3px]"
+                            >
+                               <Receipt size={18} />
+                               PAY BILL
+                            </button>
+                         )}
+                         {order.status === 3 && (
+                            <div className="w-full bg-slate-500/20 text-slate-400 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 border border-slate-500/20 uppercase text-xs tracking-wider">
+                               <CheckCircle2 size={16} /> Paid & Completed
+                            </div>
+                         )}
+                      </div>
+                    </motion.div>
+                  );
+               })}
+            </AnimatePresence>
          </div>
       )}
+
+      {/* The Checkout Glass Modal */}
+      <CheckoutModal 
+         isOpen={!!checkoutTarget} 
+         onClose={() => setCheckoutTarget(null)} 
+         orderId={checkoutTarget?.id || null}
+         tableNumber={checkoutTarget?.tableNumber || ''}
+      />
     </div>
   );
 }
