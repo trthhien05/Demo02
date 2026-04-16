@@ -13,6 +13,13 @@ import { toast } from 'sonner';
 const profileSchema = z.object({
   fullName: z.string().min(2, "Họ tên phải có ít nhất 2 ký tự."),
   email: z.string().email("Email không hợp lệ."),
+  phoneNumber: z.string().optional(),
+  dateOfBirth: z.string().optional(),
+  gender: z.string().optional(),
+  address: z.string().optional(),
+  department: z.string().optional(),
+  bio: z.string().optional(),
+  avatarUrl: z.string().optional(),
 });
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
@@ -30,6 +37,7 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<'general' | 'security'>('general');
   const [userData, setUserData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
   const profileForm = useForm<ProfileFormValues>({ resolver: zodResolver(profileSchema) });
   const passwordForm = useForm<PasswordFormValues>({ resolver: zodResolver(passwordSchema) });
@@ -44,7 +52,14 @@ export default function ProfilePage() {
       setUserData(res.data);
       profileForm.reset({
         fullName: res.data.FullName,
-        email: res.data.Email
+        email: res.data.Email,
+        phoneNumber: res.data.PhoneNumber ?? '',
+        dateOfBirth: res.data.DateOfBirth ? res.data.DateOfBirth.split('T')[0] : '',
+        gender: res.data.Gender ?? '',
+        address: res.data.Address ?? '',
+        department: res.data.Department ?? '',
+        bio: res.data.Bio ?? '',
+        avatarUrl: res.data.AvatarUrl ?? '',
       });
     } catch (error) {
       toast.error("Không thể tải thông tin hồ sơ.");
@@ -55,11 +70,43 @@ export default function ProfilePage() {
 
   const onProfileSubmit = async (data: ProfileFormValues) => {
     try {
-      await apiClient.put('/users/profile', data);
+      const payload = {
+          ...data,
+          dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth).toISOString() : null
+      };
+      await apiClient.put('/users/profile', payload);
       toast.success("Cập nhật thông tin thành công!");
       fetchProfile();
     } catch (error) {
       toast.error("Lỗi cập nhật hồ sơ.");
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingAvatar(true);
+    const formData = new FormData();
+    formData.append('image', file);
+
+    try {
+      // Dùng ImgBB API Public Key ẩn cho Demo, có thể thay đổi trong môi trường thật
+      const res = await fetch('https://api.imgbb.com/1/upload?key=e080ea4c68ff8bb2c6e61f2fde2a4eb2', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      if (data.success) {
+        profileForm.setValue('avatarUrl', data.data.url, { shouldDirty: true });
+        onProfileSubmit(profileForm.getValues());
+      } else {
+        toast.error("Lỗi tải ảnh lên Cloud.");
+      }
+    } catch {
+      toast.error("Không thể kết nối đến máy chủ ảnh.");
+    } finally {
+      setIsUploadingAvatar(false);
     }
   };
 
@@ -98,12 +145,19 @@ export default function ProfilePage() {
         <div className="lg:col-span-1 space-y-6">
           <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="glass-card p-8 rounded-[2rem] flex flex-col items-center text-center">
             <div className="relative group mb-6">
-              <div className="w-32 h-32 rounded-full bg-gradient-to-tr from-primary to-accent flex items-center justify-center text-white text-4xl font-black shadow-2xl shadow-primary/20 ring-4 ring-white/10 overflow-hidden">
-                {userData?.FullName?.charAt(0) || 'U'}
+              <div className="w-32 h-32 rounded-full bg-gradient-to-tr from-primary to-accent flex items-center justify-center text-white text-4xl font-black shadow-2xl shadow-primary/20 ring-4 ring-white/10 overflow-hidden relative">
+                {isUploadingAvatar ? (
+                    <Loader2 className="animate-spin" size={32} />
+                ) : userData?.AvatarUrl ? (
+                    <img src={userData.AvatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                    userData?.FullName?.charAt(0) || 'U'
+                )}
               </div>
-              <button className="absolute bottom-0 right-0 p-2.5 bg-background/80 backdrop-blur-md rounded-full border border-white/10 text-white hover:bg-primary transition-colors shadow-lg shadow-black/40">
+              <label className="absolute bottom-0 right-0 p-2.5 bg-background/80 backdrop-blur-md rounded-full border border-white/10 text-white hover:bg-primary transition-colors shadow-lg shadow-black/40 cursor-pointer">
                 <Camera size={16} />
-              </button>
+                <input type="file" accept="image/*" className="hidden" disabled={isUploadingAvatar} onChange={handleImageUpload} />
+              </label>
             </div>
             <h2 className="text-xl font-bold text-white mb-1">{userData?.FullName}</h2>
             <div className="px-3 py-1 bg-primary/10 border border-primary/20 rounded-full text-primary text-[10px] font-black uppercase tracking-widest mb-4">
@@ -112,13 +166,19 @@ export default function ProfilePage() {
             <p className="text-xs text-muted-foreground mb-6">@{userData?.Username}</p>
             
             <div className="w-full space-y-2 pt-6 border-t border-white/5">
+                {userData?.PhoneNumber && (
+                  <div className="flex items-center justify-between text-xs p-2 rounded-xl hover:bg-white/5 transition-colors">
+                      <span className="text-muted-foreground">Điện thoại</span>
+                      <span className="text-white font-bold">{userData.PhoneNumber}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between text-xs p-2 rounded-xl hover:bg-white/5 transition-colors">
+                    <span className="text-muted-foreground">Phòng ban</span>
+                    <span className="text-white font-bold">{userData?.Department || 'N/A'}</span>
+                </div>
                 <div className="flex items-center justify-between text-xs p-2 rounded-xl hover:bg-white/5 transition-colors">
                     <span className="text-muted-foreground">Tình trạng</span>
                     <span className="text-emerald-400 font-bold flex items-center gap-1"><CheckCircle2 size={12} /> Hoạt động</span>
-                </div>
-                <div className="flex items-center justify-between text-xs p-2 rounded-xl hover:bg-white/5 transition-colors">
-                    <span className="text-muted-foreground">Bảo mật</span>
-                    <span className="text-white font-bold">Cấp 2</span>
                 </div>
             </div>
           </motion.div>
@@ -176,7 +236,67 @@ export default function ProfilePage() {
                     </div>
                   </div>
 
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-muted-foreground ml-1">Số điện thoại</label>
+                        <input
+                           {...profileForm.register('phoneNumber')}
+                           className="w-full bg-black/20 border border-white/10 rounded-2xl py-3 px-4 outline-none focus:border-primary focus:bg-white/5 transition-all text-sm text-white"
+                           placeholder="Nhập số điện thoại"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-muted-foreground ml-1">Giới tính</label>
+                        <select
+                           {...profileForm.register('gender')}
+                           className="w-full bg-black/20 border border-white/10 rounded-2xl py-3 px-4 outline-none focus:border-primary focus:bg-white/5 transition-all text-sm text-white appearance-none"
+                        >
+                            <option value="" className="bg-neutral-900">Chưa xác định</option>
+                            <option value="Nam" className="bg-neutral-900">Nam</option>
+                            <option value="Nữ" className="bg-neutral-900">Nữ</option>
+                            <option value="Khác" className="bg-neutral-900">Khác</option>
+                        </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-muted-foreground ml-1">Chức vụ / Phòng ban</label>
+                        <input
+                           {...profileForm.register('department')}
+                           className="w-full bg-black/20 border border-white/10 rounded-2xl py-3 px-4 outline-none focus:border-primary focus:bg-white/5 transition-all text-sm text-white"
+                           placeholder="Ví dụ: Quản lý chi nhánh"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-muted-foreground ml-1">Ngày sinh</label>
+                        <input
+                           type="date"
+                           {...profileForm.register('dateOfBirth')}
+                           className="w-full bg-black/20 border border-white/10 rounded-2xl py-3 px-4 outline-none focus:border-primary focus:bg-white/5 transition-all text-sm text-white [&::-webkit-calendar-picker-indicator]:invert"
+                        />
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
+                        <label className="text-xs font-bold text-muted-foreground ml-1">Địa chỉ thường trú</label>
+                        <input
+                           {...profileForm.register('address')}
+                           className="w-full bg-black/20 border border-white/10 rounded-2xl py-3 px-4 outline-none focus:border-primary focus:bg-white/5 transition-all text-sm text-white"
+                           placeholder="Nhập địa chỉ của bạn"
+                        />
+                  </div>
+
+                  <div className="space-y-2">
+                        <label className="text-xs font-bold text-muted-foreground ml-1">Tiểu sử / Ghi chú</label>
+                        <textarea
+                           {...profileForm.register('bio')}
+                           className="w-full bg-black/20 border border-white/10 rounded-2xl py-3 px-4 outline-none focus:border-primary focus:bg-white/5 transition-all text-sm text-white min-h-[100px] resize-y"
+                           placeholder="Vài nét về công việc và bản thân..."
+                        />
+                  </div>
+
+                  <div className="space-y-2 pt-4">
                     <label className="text-xs font-bold text-muted-foreground ml-1 opacity-50">Tên đăng nhập (Không thể đổi)</label>
                     <input
                       value={userData?.Username}

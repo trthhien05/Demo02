@@ -225,13 +225,22 @@ public class AuthService : IAuthService
         return await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
     }
 
-    public async Task<bool> UpdateProfileAsync(int userId, string fullName, string email)
+    public async Task<bool> UpdateProfileAsync(int userId, string fullName, string email, string? phoneNumber, string? avatarUrl, string? bio, DateTime? dateOfBirth, string? gender, string? address, string? department)
     {
         var user = await _context.Users.FindAsync(userId);
         if (user == null) return false;
 
         user.FullName = fullName;
         user.Email = email;
+        
+        if (phoneNumber != null) user.PhoneNumber = phoneNumber;
+        if (avatarUrl != null) user.AvatarUrl = avatarUrl;
+        if (bio != null) user.Bio = bio;
+        if (dateOfBirth != null) user.DateOfBirth = dateOfBirth;
+        if (gender != null) user.Gender = gender;
+        if (address != null) user.Address = address;
+        if (department != null) user.Department = department;
+
         await _context.SaveChangesAsync();
         return true;
     }

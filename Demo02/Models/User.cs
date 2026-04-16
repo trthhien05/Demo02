@@ -31,4 +31,25 @@ public class User
     
     public string? ResetToken { get; set; }
     public DateTime? ResetTokenExpiryTime { get; set; }
+
+    // --- Extended Profile Fields ---
+    [MaxLength(20)]
+    public string? PhoneNumber { get; set; }
+
+    [MaxLength(500)]
+    public string? AvatarUrl { get; set; }
+
+    [MaxLength(500)]
+    public string? Bio { get; set; }
+
+    public DateTime? DateOfBirth { get; set; }
+
+    [MaxLength(20)]
+    public string? Gender { get; set; }
+
+    [MaxLength(200)]
+    public string? Address { get; set; }
+
+    [MaxLength(100)]
+    public string? Department { get; set; }
 }

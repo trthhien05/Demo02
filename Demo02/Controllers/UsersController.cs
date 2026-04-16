@@ -34,7 +34,14 @@ public class UsersController : ControllerBase
             user.Username,
             user.FullName,
             user.Email,
-            user.Role
+            user.Role,
+            user.PhoneNumber,
+            user.AvatarUrl,
+            user.Bio,
+            user.DateOfBirth,
+            user.Gender,
+            user.Address,
+            user.Department
         });
     }
 
@@ -42,7 +49,7 @@ public class UsersController : ControllerBase
     public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
     {
         var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var result = await _authService.UpdateProfileAsync(userId, request.FullName, request.Email);
+        var result = await _authService.UpdateProfileAsync(userId, request.FullName, request.Email, request.PhoneNumber, request.AvatarUrl, request.Bio, request.DateOfBirth, request.Gender, request.Address, request.Department);
         if (!result) return BadRequest(new { Message = "Update failed" });
 
         return Ok(new { Message = "Profile updated successfully" });
@@ -63,6 +70,13 @@ public class UpdateProfileRequest
 {
     public string FullName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
+    public string? PhoneNumber { get; set; }
+    public string? AvatarUrl { get; set; }
+    public string? Bio { get; set; }
+    public DateTime? DateOfBirth { get; set; }
+    public string? Gender { get; set; }
+    public string? Address { get; set; }
+    public string? Department { get; set; }
 }
 
 public class ChangePasswordRequest
