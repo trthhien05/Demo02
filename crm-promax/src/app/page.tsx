@@ -62,7 +62,7 @@ export default function Home() {
             </button>
           </Link>
           
-          <Link href="https://github.com/your-repo" target="_blank" rel="noreferrer">
+          <Link href="https://github.com/trthhien05/Demo02" target="_blank" rel="noreferrer">
             <button className="w-full sm:w-auto px-8 py-4 glass text-foreground font-semibold rounded-2xl hover:bg-white/10 transition-all flex items-center justify-center gap-2">
               <ChefHat size={18} />
               <span>View Source</span>
