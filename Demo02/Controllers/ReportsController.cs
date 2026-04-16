@@ -32,10 +32,12 @@ public class ReportsController : ControllerBase
             .Select(g => new { Segment = g.Key, Count = g.Count() })
             .ToListAsync();
 
-        var tierDistribution = await _context.Customers
+        var tierData = await _context.Customers
             .GroupBy(c => c.Tier)
-            .Select(g => new { Tier = g.Key.ToString(), Count = g.Count() })
+            .Select(g => new { Tier = g.Key, Count = g.Count() })
             .ToListAsync();
+
+        var tierDistribution = tierData.Select(x => new { Tier = x.Tier.ToString(), Count = x.Count });
 
         return Ok(new
         {
@@ -72,10 +74,12 @@ public class ReportsController : ControllerBase
     {
         var totalReservations = await _context.Reservations.CountAsync();
         
-        var statusDistribution = await _context.Reservations
+        var statusData = await _context.Reservations
             .GroupBy(r => r.Status)
-            .Select(g => new { Status = g.Key.ToString(), Count = g.Count() })
+            .Select(g => new { Status = g.Key, Count = g.Count() })
             .ToListAsync();
+
+        var statusDistribution = statusData.Select(x => new { Status = x.Status.ToString(), Count = x.Count });
 
         return Ok(new
         {
@@ -90,12 +94,14 @@ public class ReportsController : ControllerBase
     {
         var sevenDaysAgo = DateTime.UtcNow.Date.AddDays(-7);
         
-        var dailyRevenue = await _context.Invoices
+        var dailyRevenueData = await _context.Invoices
             .Where(i => i.IssuedAt >= sevenDaysAgo && i.Status == InvoiceStatus.Paid)
             .GroupBy(i => i.IssuedAt.Date)
-            .Select(g => new { Date = g.Key.ToString("yyyy-MM-dd"), Amount = g.Sum(i => i.FinalAmount) })
+            .Select(g => new { Date = g.Key, Amount = g.Sum(i => i.FinalAmount) })
             .OrderBy(r => r.Date)
             .ToListAsync();
+
+        var dailyRevenue = dailyRevenueData.Select(r => new { Date = r.Date.ToString("yyyy-MM-dd"), Amount = r.Amount });
 
         return Ok(dailyRevenue);
     }
