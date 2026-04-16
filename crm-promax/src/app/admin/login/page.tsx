@@ -6,7 +6,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
 import { UtensilsCrossed, Lock, User, ArrowRight, Loader2, Eye, EyeOff } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import apiClient from '@/lib/api-client';
 import { useAuthStore } from '@/lib/auth-store';
@@ -21,7 +20,6 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
-  const router = useRouter();
   const setAuth = useAuthStore((state) => state.setAuth);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -67,7 +65,8 @@ export default function LoginPage() {
          description: 'Đang chuẩn bị không gian làm việc...',
       });
 
-      router.push('/admin');
+      // Bypassing Next.js client-side router cache to evade prefetched middleware unauthenticated checks
+      window.location.href = '/admin';
     } catch (error: any) {
       toast.error('Đăng nhập thất bại', {
         description: error.response?.data?.Message || 'Vui lòng kiểm tra lại thông tin hoặc thử lại sau.',
