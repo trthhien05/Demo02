@@ -4,6 +4,8 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 interface AuthState {
   isAuthenticated: boolean;
   accessToken: string | null;
+  _hasHydrated: boolean;
+  setHasHydrated: (state: boolean) => void;
   setAuth: (accessToken: string) => void;
   clearAuth: () => void;
 }
@@ -13,12 +15,17 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       isAuthenticated: false,
       accessToken: null,
+      _hasHydrated: false,
+      setHasHydrated: (state) => set({ _hasHydrated: state }),
       setAuth: (token: string) => set({ isAuthenticated: true, accessToken: token }),
       clearAuth: () => set({ isAuthenticated: false, accessToken: null }),
     }),
     {
-      name: 'auth-storage', // name of the item in the storage (must be unique)
-      storage: createJSONStorage(() => sessionStorage), // optionally use sessionStorage
+      name: 'promax-auth-storage', 
+      storage: createJSONStorage(() => localStorage), 
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     }
   )
 );

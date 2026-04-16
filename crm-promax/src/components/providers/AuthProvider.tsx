@@ -8,21 +8,24 @@ import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { accessToken, setAuth, clearAuth } = useAuthStore();
+  const { accessToken, _hasHydrated, setAuth, clearAuth } = useAuthStore();
   const [isInitializing, setIsInitializing] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
+    // Chỉ bắt đầu kiểm tra nếu Zustand đã Hydrated xong
+    if (!_hasHydrated) return;
+
     let isMounted = true;
 
     const initializeAuth = async () => {
-      // Đã có token trong RAM -> Bỏ qua
+      // Đã có token trong RAM & LocalStorage -> Bỏ qua
       if (accessToken) {
         if (isMounted) setIsInitializing(false);
         return;
       }
 
-      // Mất Token trong RAM (Có thể do F5). Cố gắng dùng RefreshToken cookie bằng cách gọi API refresh.
+      // Mất Token trong RAM. Cố gắng dùng RefreshToken cookie bằng cách gọi API refresh.
       try {
         const res = await apiClient.post('/auth/refresh');
         if (isMounted) {
@@ -43,10 +46,10 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     return () => {
       isMounted = false;
     };
-  }, [accessToken, setAuth, clearAuth, router]);
+  }, [_hasHydrated, accessToken, setAuth, clearAuth, router]);
 
-  // Che màn hình lúc đang Refresh tránh flicker giao diện
-  if (isInitializing) {
+  // Che màn hình lúc đang Refresh hoặc đang đợi Hydration
+  if (!_hasHydrated || isInitializing) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center space-y-4">
         <Loader2 className="w-10 h-10 text-primary animate-spin" />

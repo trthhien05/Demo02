@@ -154,7 +154,7 @@ public class AuthService : IAuthService
         var randomNumber = new byte[32];
         using var rng = RandomNumberGenerator.Create();
         rng.GetBytes(randomNumber);
-        return Convert.ToBase64String(randomNumber);
+        return Convert.ToHexString(randomNumber);
     }
 
     public async Task<string?> GeneratePasswordResetTokenAsync(string usernameOrEmail)
