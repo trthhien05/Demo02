@@ -23,12 +23,23 @@ interface RestaurantSetting {
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
+  const [formData, setFormData] = useState<RestaurantSetting | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
   const { data: settings, isLoading } = useQuery<RestaurantSetting>({
     queryKey: ['settings'],
-    queryFn: async () => (await apiClient.get('/settings')).data
+    queryFn: async () => {
+       const res = await apiClient.get('/settings');
+       return res.data;
+    }
   });
+
+  // Sync with local state once loaded
+  React.useEffect(() => {
+    if (settings) {
+      setFormData(settings);
+    }
+  }, [settings]);
 
   const mutation = useMutation({
     mutationFn: (data: RestaurantSetting) => apiClient.put('/settings', data),
@@ -47,19 +58,18 @@ export default function SettingsPage() {
     if (!file) return;
 
     setIsUploading(true);
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('upload_preset', 'ml_default'); // Replace if needed
+    const uploadData = new FormData();
+    uploadData.append('file', file);
+    uploadData.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'ml_default');
 
     try {
-      // Direct call to Cloudinary for demonstration
       const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`, {
         method: 'POST',
-        body: formData
+        body: uploadData
       });
       const data = await res.json();
-      if (settings) {
-         mutation.mutate({ ...settings, logoUrl: data.secure_url });
+      if (formData) {
+         setFormData({ ...formData, logoUrl: data.secure_url });
       }
     } catch (err) {
       toast.error('Upload ảnh thất bại');
@@ -68,7 +78,12 @@ export default function SettingsPage() {
     }
   };
 
-  if (isLoading || !settings) {
+  const updateField = (field: keyof RestaurantSetting, value: any) => {
+    if (!formData) return;
+    setFormData({ ...formData, [field]: value });
+  };
+
+  if (isLoading || !formData) {
     return (
       <div className="h-[60vh] flex flex-col items-center justify-center">
         <Loader2 className="animate-spin text-primary w-12 h-12 mb-4" />
@@ -92,7 +107,7 @@ export default function SettingsPage() {
          </motion.div>
 
          <button 
-           onClick={() => mutation.mutate(settings)}
+           onClick={() => formData && mutation.mutate(formData)}
            disabled={mutation.isPending}
            className="px-8 py-4 bg-primary text-primary-foreground rounded-2xl font-black uppercase tracking-[0.2em] text-xs flex items-center gap-3 shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
          >
@@ -117,8 +132,8 @@ export default function SettingsPage() {
                   <div className="md:col-span-2">
                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 block">Tên Nhà Hàng / Chuỗi</label>
                      <input 
-                        value={settings.name} 
-                        onChange={e => mutation.mutate({ ...settings, name: e.target.value }, { onSuccess: () => {} })}
+                        value={formData.name} 
+                        onChange={e => updateField('name', e.target.value)}
                         className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-xl font-bold focus:border-primary outline-none transition-all italic"
                      />
                   </div>
@@ -127,8 +142,8 @@ export default function SettingsPage() {
                      <div className="relative">
                         <Phone size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                         <input 
-                           value={settings.phoneNumber || ''} 
-                           onChange={e => queryClient.setQueryData(['settings'], { ...settings, phoneNumber: e.target.value })}
+                           value={formData.phoneNumber || ''} 
+                           onChange={e => updateField('phoneNumber', e.target.value)}
                            className="w-full bg-white/5 border border-white/10 rounded-2xl pl-14 pr-6 py-4 text-sm font-bold focus:border-primary outline-none"
                         />
                      </div>
@@ -138,8 +153,8 @@ export default function SettingsPage() {
                      <div className="relative">
                         <Mail size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                         <input 
-                           value={settings.email || ''} 
-                           onChange={e => queryClient.setQueryData(['settings'], { ...settings, email: e.target.value })}
+                           value={formData.email || ''} 
+                           onChange={e => updateField('email', e.target.value)}
                            className="w-full bg-white/5 border border-white/10 rounded-2xl pl-14 pr-6 py-4 text-sm font-bold focus:border-primary outline-none"
                         />
                      </div>
@@ -149,8 +164,8 @@ export default function SettingsPage() {
                      <div className="relative">
                         <MapPin size={18} className="absolute left-5 top-5 text-muted-foreground" />
                         <textarea 
-                           value={settings.address || ''} 
-                           onChange={e => queryClient.setQueryData(['settings'], { ...settings, address: e.target.value })}
+                           value={formData.address || ''} 
+                           onChange={e => updateField('address', e.target.value)}
                            className="w-full bg-white/5 border border-white/10 rounded-2xl pl-14 pr-6 py-4 text-sm font-bold focus:border-primary outline-none h-24 resize-none"
                         />
                      </div>
@@ -172,8 +187,8 @@ export default function SettingsPage() {
                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground block mb-2 text-center">Thuế VAT (%)</label>
                      <input 
                         type="number"
-                        value={settings.taxRate} 
-                        onChange={e => queryClient.setQueryData(['settings'], { ...settings, taxRate: parseFloat(e.target.value) })}
+                        value={formData.taxRate} 
+                        onChange={e => updateField('taxRate', parseFloat(e.target.value))}
                         className="w-24 bg-transparent text-3xl font-black text-center outline-none border-b-2 border-primary/20 focus:border-primary transition-all pb-1"
                      />
                   </div >
@@ -184,8 +199,8 @@ export default function SettingsPage() {
                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground block mb-2 text-center">Phí Phục Vụ (%)</label>
                      <input 
                         type="number"
-                        value={settings.serviceCharge} 
-                        onChange={e => queryClient.setQueryData(['settings'], { ...settings, serviceCharge: parseFloat(e.target.value) })}
+                        value={formData.serviceCharge} 
+                        onChange={e => updateField('serviceCharge', parseFloat(e.target.value))}
                         className="w-24 bg-transparent text-3xl font-black text-center outline-none border-b-2 border-primary/20 focus:border-primary transition-all pb-1"
                      />
                   </div>
@@ -195,8 +210,8 @@ export default function SettingsPage() {
                      </div>
                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground block mb-2 text-center">Tiền Tệ</label>
                      <input 
-                        value={settings.currency} 
-                        onChange={e => queryClient.setQueryData(['settings'], { ...settings, currency: e.target.value })}
+                        value={formData.currency} 
+                        onChange={e => updateField('currency', e.target.value)}
                         className="w-24 bg-transparent text-3xl font-black text-center outline-none border-b-2 border-primary/20 focus:border-primary transition-all pb-1 italic"
                      />
                   </div>
@@ -213,8 +228,8 @@ export default function SettingsPage() {
                <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-6">Logo Nhà Hàng</h3>
                <div className="relative group mb-6">
                   <div className="w-48 h-48 rounded-[3rem] bg-white/5 border-2 border-white/10 flex items-center justify-center overflow-hidden transition-all group-hover:border-primary/50 relative">
-                     {settings.logoUrl ? (
-                        <img src={settings.logoUrl} alt="Logo" className="w-full h-full object-contain p-4" />
+                     {formData.logoUrl ? (
+                        <img src={formData.logoUrl} alt="Logo" className="w-full h-full object-contain p-4" />
                      ) : (
                         <ImageIcon size={60} className="text-white/10" />
                      )}
