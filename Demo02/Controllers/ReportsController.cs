@@ -90,12 +90,12 @@ public class ReportsController : ControllerBase
 
     // GET: api/reports/revenue-stats
     [HttpGet("revenue-stats")]
-    public async Task<IActionResult> GetRevenueStats()
+    public async Task<IActionResult> GetRevenueStats([FromQuery] int days = 7)
     {
-        var sevenDaysAgo = DateTime.UtcNow.Date.AddDays(-7);
+        var targetDate = DateTime.UtcNow.Date.AddDays(-days);
         
         var dailyRevenueData = await _context.Invoices
-            .Where(i => i.IssuedAt >= sevenDaysAgo && i.Status == InvoiceStatus.Paid)
+            .Where(i => i.IssuedAt >= targetDate && i.Status == InvoiceStatus.Paid)
             .GroupBy(i => i.IssuedAt.Date)
             .Select(g => new { Date = g.Key, Amount = g.Sum(i => i.FinalAmount) })
             .OrderBy(r => r.Date)
@@ -138,6 +138,31 @@ public class ReportsController : ControllerBase
         }
 
         return File(System.Text.Encoding.UTF8.GetBytes(csv.ToString()), "text/csv", "ShiftsReport.csv");
+    }
+
+    // GET: api/reports/export-revenue
+    [HttpGet("export-revenue")]
+    public async Task<IActionResult> ExportRevenueCsv([FromQuery] int days = 30)
+    {
+        var targetDate = DateTime.UtcNow.Date.AddDays(-days);
+        
+        var revenueData = await _context.Invoices
+            .Where(i => i.IssuedAt >= targetDate && i.Status == InvoiceStatus.Paid)
+            .OrderByDescending(i => i.IssuedAt)
+            .Select(i => new { i.InvoiceNumber, i.IssuedAt, i.FinalAmount, i.PaymentMethod })
+            .ToListAsync();
+
+        var csv = new System.Text.StringBuilder();
+        csv.AppendLine("SoHoaDon,NgayXuat,GiaTri(VND),PhuongThucThanhToan");
+
+        foreach (var r in revenueData)
+        {
+            csv.AppendLine($"{r.InvoiceNumber},{r.IssuedAt.ToString("yyyy-MM-dd HH:mm")},{r.FinalAmount},{r.PaymentMethod}");
+        }
+
+        // Add BOM for Excel UTF-8 compatibility
+        var bytes = System.Text.Encoding.UTF8.GetPreamble().Concat(System.Text.Encoding.UTF8.GetBytes(csv.ToString())).ToArray();
+        return File(bytes, "text/csv", $"RevenueReport_{days}Days.csv");
     }
 }
 

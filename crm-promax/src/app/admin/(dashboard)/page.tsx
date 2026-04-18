@@ -29,22 +29,24 @@ import apiClient from '@/lib/api-client';
 
 export default function AdminDashboard() {
   const [isMounted, setIsMounted] = React.useState(false);
+  const [daysFilter, setDaysFilter] = React.useState(7);
+  const [isExporting, setIsExporting] = React.useState(false);
 
   React.useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  // 1. Revenue Stats (7 days)
-  const { data: revenueStats = [] } = useQuery({
-    queryKey: ['revenue-stats'],
+  // 1. Revenue Stats (dynamic days)
+  const { data: revenueStats = [], isLoading: isRevenueLoading } = useQuery({
+    queryKey: ['revenue-stats', daysFilter],
     queryFn: async () => {
-      const res = await apiClient.get('/reports/revenue-stats');
+      const res = await apiClient.get(`/reports/revenue-stats?days=${daysFilter}`);
       return res.data;
     }
   });
 
   // 2. Customer Summary
-  const { data: customerSummary } = useQuery({
+  const { data: customerSummary, isLoading: isCustomerLoading } = useQuery({
     queryKey: ['customer-summary'],
     queryFn: async () => {
       const res = await apiClient.get('/reports/customer-summary');
@@ -53,7 +55,7 @@ export default function AdminDashboard() {
   });
 
   // 3. Tables
-  const { data: tables = [] } = useQuery({
+  const { data: tables = [], isLoading: isTablesLoading } = useQuery({
     queryKey: ['diningTables'], // shared cache
     queryFn: async () => {
       const res = await apiClient.get('/table');
@@ -62,13 +64,33 @@ export default function AdminDashboard() {
   });
 
   // 4. Orders
-  const { data: orders = [] } = useQuery({
+  const { data: orders = [], isLoading: isOrdersLoading } = useQuery({
     queryKey: ['orders-metrics'],
     queryFn: async () => {
       const res = await apiClient.get('/order');
       return res.data;
     }
   });
+
+  const isGlobalLoading = isRevenueLoading || isCustomerLoading || isTablesLoading || isOrdersLoading;
+
+  const handleExportRevenue = async () => {
+    try {
+      setIsExporting(true);
+      const res = await apiClient.get(`/reports/export-revenue?days=${daysFilter}`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `RevenueReport_${daysFilter}Days.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+    } catch {
+      console.error("Export failed");
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   // Calculate Metrics
   const activeTablesCount = tables.filter((t: any) => t.status === 'Occupied' || t.status === 'Cleaning').length;
@@ -112,16 +134,20 @@ export default function AdminDashboard() {
             Bộ Lọc
           </button>
           {/* VIP Export Button Area */}
-          <motion.button 
+          <motion.div 
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             className="glow-border group relative p-[1px] rounded-2xl overflow-hidden bg-gradient-to-r from-primary to-accent"
           >
-            <div className="bg-background/90 rounded-[15px] px-6 py-3 flex items-center gap-3">
-              <Download size={18} className="text-primary group-hover:-translate-y-1 transition-transform" />
-              <span className="text-sm font-bold">Xuất Báo Cáo</span>
-            </div>
-          </motion.button>
+            <button 
+              onClick={handleExportRevenue}
+              disabled={isExporting}
+              className="bg-background/90 rounded-[15px] px-6 py-3 flex items-center gap-3 w-full h-full disabled:opacity-50"
+            >
+              {isExporting ? <Loader2 size={18} className="animate-spin text-primary" /> : <Download size={18} className="text-primary group-hover:-translate-y-1 transition-transform" />}
+              <span className="text-sm font-bold">{isExporting ? 'Đang Xuất...' : 'Xuất Báo Cáo'}</span>
+            </button>
+          </motion.div>
         </div>
       </div>
 
@@ -135,23 +161,33 @@ export default function AdminDashboard() {
             transition={{ delay: idx * 0.1 }}
             className="stat-card relative overflow-hidden bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl p-6 rounded-3xl transition-all hover:scale-[1.02] hover:shadow-primary/20 group cursor-default"
           >
-            <div className="flex items-start justify-between">
-              <div className={cn("p-4 rounded-2xl transition-transform group-hover:scale-110", stat.bg, stat.color)}>
-                <stat.icon size={24} />
+            {isGlobalLoading ? (
+              <div className="animate-pulse flex flex-col h-full gap-4">
+                 <div className="w-12 h-12 bg-white/10 rounded-2xl" />
+                 <div className="w-24 h-4 bg-white/5 rounded-full mt-auto" />
+                 <div className="w-32 h-8 bg-white/10 rounded-lg" />
               </div>
-              <div className="flex items-center gap-1 text-[10px] font-bold py-1 px-2 rounded-full border border-white/10 text-muted-foreground bg-white/5">
-                <TrendingUp size={12} className={stat.trend === 'Live' ? 'text-emerald-400' : 'text-primary'} />
-                {stat.trend}
-              </div>
-            </div>
-            <div className="mt-6">
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">{stat.label}</p>
-              <h3 className="text-3xl font-black mt-1 tracking-tighter">{stat.value}</h3>
-            </div>
-            {/* Hover Decor */}
-            <div className="absolute -bottom-4 -right-4 p-2 opacity-5 scale-150 rotate-12 group-hover:opacity-10 transition-opacity pointer-events-none">
-               <stat.icon size={100} />
-            </div>
+            ) : (
+              <>
+                <div className="flex items-start justify-between">
+                  <div className={cn("p-4 rounded-2xl transition-transform group-hover:scale-110", stat.bg, stat.color)}>
+                    <stat.icon size={24} />
+                  </div>
+                  <div className="flex items-center gap-1 text-[10px] font-bold py-1 px-2 rounded-full border border-white/10 text-muted-foreground bg-white/5">
+                    <TrendingUp size={12} className={stat.trend === 'Live' ? 'text-emerald-400' : 'text-primary'} />
+                    {stat.trend}
+                  </div>
+                </div>
+                <div className="mt-6">
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">{stat.label}</p>
+                  <h3 className="text-3xl font-black mt-1 tracking-tighter">{stat.value}</h3>
+                </div>
+                {/* Hover Decor */}
+                <div className="absolute -bottom-4 -right-4 p-2 opacity-5 scale-150 rotate-12 group-hover:opacity-10 transition-opacity pointer-events-none">
+                  <stat.icon size={100} />
+                </div>
+              </>
+            )}
           </motion.div>
         ))}
       </div>
@@ -171,7 +207,21 @@ export default function AdminDashboard() {
               <p className="text-xs text-muted-foreground mt-1">Theo dõi thu nhập hàng ngày so với tuần trước</p>
             </div>
             <div className="flex items-center gap-6">
-               <div className="flex items-center gap-2">
+               <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-xl p-1">
+                 {[7, 14, 30].map(days => (
+                   <button 
+                     key={days}
+                     onClick={() => setDaysFilter(days)}
+                     className={cn(
+                       "px-4 py-1.5 text-xs font-bold rounded-lg transition-all",
+                       daysFilter === days ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-muted-foreground hover:text-white hover:bg-white/5"
+                     )}
+                   >
+                     {days} Ngày
+                   </button>
+                 ))}
+               </div>
+               <div className="hidden sm:flex items-center gap-2">
                  <div className="w-3 h-3 rounded-full bg-primary" />
                  <span className="text-xs font-bold">Tổng Doanh Thu</span>
                </div>
@@ -179,7 +229,12 @@ export default function AdminDashboard() {
           </div>
 
           <div className="h-[320px] w-full" style={{ minHeight: '320px', minWidth: '0' }}>
-            {isMounted ? chartData.length > 0 ? (
+            {isGlobalLoading ? (
+               <div className="w-full h-full bg-white/5 animate-pulse rounded-2xl flex flex-col items-center justify-center text-muted-foreground">
+                  <div className="w-48 h-4 bg-white/10 rounded-full mb-4" />
+                  <div className="w-32 h-4 bg-white/5 rounded-full" />
+               </div>
+            ) : isMounted ? chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <defs>
@@ -228,11 +283,7 @@ export default function AdminDashboard() {
                <div className="w-full h-full flex flex-col items-center justify-center opacity-50">
                   <span className="text-sm">Chưa đủ dữ liệu để vẽ biểu đồ</span>
                </div>
-            ) : (
-              <div className="w-full h-full bg-white/5 animate-pulse rounded-2xl flex items-center justify-center text-muted-foreground text-xs">
-                Đang Chuẩn Bị Dữ Liệu...
-              </div>
-            )}
+            ) : null}
           </div>
         </motion.div>
 
