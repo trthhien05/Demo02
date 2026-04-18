@@ -12,6 +12,33 @@ import apiClient from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
 
+// ── Helpers ────────────────────────────────────────────────────────────────────
+function exportCustomersCSV(customers: any[]) {
+  const header = 'ID,Họ Tên,Số Điện Thoại,Email,Hạng,Điểm,Ngày Tham Gia,Lần Ghé Cuối';
+  const rows = customers.map(c =>
+    [
+      c.id,
+      `"${c.fullName || ''}"`,
+      c.phoneNumber,
+      c.email || '',
+      ['Member', 'Silver', 'Gold', 'Diamond'][c.tier] || 'Member',
+      c.points,
+      new Date(c.createdAt).toLocaleDateString('vi-VN'),
+      c.lastVisit ? new Date(c.lastVisit).toLocaleDateString('vi-VN') : ''
+    ].join(',')
+  );
+  const bom = '\uFEFF';
+  const csv = bom + [header, ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `customers_${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast.success('Đã xuất danh sách khách hàng!');
+}
+
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface Customer {
   id: number;
@@ -41,6 +68,110 @@ const TIER_MAP: Record<number, { label: string; color: string; iconColor: string
 };
 
 const PAYMENT_LABELS: Record<number, string> = { 0: 'Tiền mặt', 1: 'Thẻ', 2: 'Chuyển khoản', 3: 'Ví điện tử' };
+
+// ── Add Customer Modal ────────────────────────────────────────────────────────
+function AddCustomerModal({ onClose }: { onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState({ fullName: '', phoneNumber: '', email: '', gender: '' });
+  const [saving, setSaving] = useState(false);
+
+  const createMutation = useMutation({
+    mutationFn: (data: any) => apiClient.post('/customer', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      toast.success('Đã thêm khách hàng mới!');
+      onClose();
+    },
+    onError: (err: any) => toast.error(err.response?.data || 'Số điện thoại đã tồn tại hoặc dữ liệu không hợp lệ.')
+  });
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.phoneNumber.trim()) { toast.error('Số điện thoại là bắt buộc'); return; }
+    setSaving(true);
+    try { await createMutation.mutateAsync(form); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        onClick={e => e.stopPropagation()}
+        className="bg-[#0c0e14] border border-white/10 shadow-2xl rounded-3xl w-full max-w-md overflow-hidden"
+      >
+        <div className="flex items-center justify-between p-6 border-b border-white/5 bg-white/5">
+          <div>
+            <h2 className="text-xl font-bold">Thêm Khách Hàng Mới</h2>
+            <p className="text-xs text-muted-foreground mt-1">Đăng ký vào hệ thống CRM</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-white/10 transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+
+        <form onSubmit={submit} className="p-6 space-y-4">
+          <div>
+            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">Số Điện Thoại <span className="text-red-400">*</span></label>
+            <input
+              type="tel" value={form.phoneNumber}
+              onChange={e => setForm(f => ({ ...f, phoneNumber: e.target.value }))}
+              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-blue-500/50 outline-none transition-colors"
+              placeholder="VD: 0901234567"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">Họ và Tên</label>
+            <input
+              value={form.fullName}
+              onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))}
+              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-blue-500/50 outline-none transition-colors"
+              placeholder="Tên đầy đủ của khách"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">Email</label>
+            <input
+              type="email" value={form.email}
+              onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-blue-500/50 outline-none transition-colors"
+              placeholder="email@example.com"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">Giới Tính</label>
+            <select
+              value={form.gender}
+              onChange={e => setForm(f => ({ ...f, gender: e.target.value }))}
+              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-blue-500/50 outline-none transition-colors appearance-none"
+            >
+              <option value="" className="bg-[#0c0e14]">— Chưa xác định —</option>
+              <option value="Nam" className="bg-[#0c0e14]">Nam</option>
+              <option value="Nữ" className="bg-[#0c0e14]">Nữ</option>
+              <option value="Khác" className="bg-[#0c0e14]">Khác</option>
+            </select>
+          </div>
+
+          <div className="pt-2 flex justify-end gap-3">
+            <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-xl font-bold text-sm bg-white/5 hover:bg-white/10 transition-colors">Hủy</button>
+            <button
+              type="submit" disabled={saving}
+              className="px-5 py-2.5 rounded-xl font-bold text-sm bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 text-white flex items-center gap-2 min-w-[130px] justify-center"
+            >
+              {saving ? <Loader2 className="animate-spin w-4 h-4" /> : <><Plus size={16} /> Đăng Ký</>}
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </motion.div>
+  );
+}
 
 // ── Customer Profile Modal ─────────────────────────────────────────────────────
 function CustomerProfileModal({ customer, onClose }: { customer: Customer; onClose: () => void }) {
@@ -238,6 +369,7 @@ export default function CustomersPage() {
   const [search, setSearch] = useState('');
   const [tierFilter, setTierFilter] = useState<number | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const { data: customers = [], isLoading } = useQuery<Customer[]>({
     queryKey: ['customers'],
@@ -279,10 +411,13 @@ export default function CustomersPage() {
               className="pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-2xl outline-none focus:border-blue-500/50 transition-colors focus:bg-white/10 w-[250px]"
             />
           </div>
-          <button className="flex items-center gap-2 px-5 py-3 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 transition-all font-bold text-sm">
+          <button
+            onClick={() => exportCustomersCSV(displayed)}
+            className="flex items-center gap-2 px-5 py-3 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 transition-all font-bold text-sm">
             <Download size={16} /> Xuất Danh Sách
           </button>
           <motion.button
+            onClick={() => setIsAddModalOpen(true)}
             whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
             className="group relative p-[1px] rounded-2xl overflow-hidden bg-gradient-to-r from-blue-500 to-indigo-500"
           >
@@ -406,6 +541,13 @@ export default function CustomersPage() {
       <AnimatePresence>
         {selectedCustomer && (
           <CustomerProfileModal customer={selectedCustomer} onClose={() => setSelectedCustomer(null)} />
+        )}
+      </AnimatePresence>
+
+      {/* Add Customer Modal */}
+      <AnimatePresence>
+        {isAddModalOpen && (
+          <AddCustomerModal onClose={() => setIsAddModalOpen(false)} />
         )}
       </AnimatePresence>
     </div>
