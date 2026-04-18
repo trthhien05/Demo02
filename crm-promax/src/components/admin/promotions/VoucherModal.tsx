@@ -67,8 +67,8 @@ export default function VoucherModal({ isOpen, onClose }: VoucherModalProps) {
               <Gift size={20} />
             </div>
             <div>
-              <h2 className="text-xl font-bold italic tracking-tight">Campaign Creation</h2>
-              <p className="text-xs text-muted-foreground mt-0.5 uppercase tracking-widest font-bold">Reward Delivery Engine</p>
+              <h2 className="text-xl font-bold italic tracking-tight">Tạo Chiến Dịch Tặng Quà</h2>
+              <p className="text-xs text-muted-foreground mt-0.5 uppercase tracking-widest font-bold">Hệ Thống Phân Phối Thưởng</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-white/10 transition-colors text-muted-foreground hover:text-white">
@@ -80,7 +80,7 @@ export default function VoucherModal({ isOpen, onClose }: VoucherModalProps) {
           {/* Target Audience */}
           <div>
             <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block flex items-center gap-2">
-              <Target size={14} className="text-primary" /> Target Audience
+              <Target size={14} className="text-primary" /> Nhóm Khách Mục Tiêu
             </label>
             <div className="grid grid-cols-2 gap-2">
               <button 
@@ -91,7 +91,7 @@ export default function VoucherModal({ isOpen, onClose }: VoucherModalProps) {
                   form.targetTier === '' ? "bg-primary/10 border-primary text-primary" : "bg-white/5 border-white/5 hover:bg-white/10 text-muted-foreground"
                 )}
               >
-                All Customers
+                Tất Cả Khách Hàng
               </button>
               <select 
                 value={form.targetTier}
@@ -101,22 +101,22 @@ export default function VoucherModal({ isOpen, onClose }: VoucherModalProps) {
                   form.targetTier !== '' ? "bg-primary/10 border-primary text-primary" : "bg-white/5 border-white/5 text-muted-foreground"
                 )}
               >
-                <option value="" disabled className="bg-[#0f1115]">Select Tier...</option>
-                <option value="0" className="bg-[#0f1115]">Member Only</option>
-                <option value="1" className="bg-[#0f1115]">Silver Only</option>
-                <option value="2" className="bg-[#0f1115]">Gold Only</option>
-                <option value="3" className="bg-[#0f1115]">Diamond Only</option>
+                <option value="" disabled className="bg-[#0f1115]">Chọn Hạng Khách...</option>
+                <option value="0" className="bg-[#0f1115]">Chỉ Thành Viên</option>
+                <option value="1" className="bg-[#0f1115]">Chỉ Hạng Bạc</option>
+                <option value="2" className="bg-[#0f1115]">Chỉ Hạng Vàng</option>
+                <option value="3" className="bg-[#0f1115]">Chỉ Hạng Kim Cương</option>
               </select>
             </div>
           </div>
 
           {/* Description */}
           <div>
-            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">Campaign Name / Description</label>
+            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">Tên Chiến Dịch / Mô Tả</label>
             <input 
               value={form.description}
               onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-              placeholder="e.g. Summer Special 2026"
+              placeholder="VD: Tri ân khách hàng Hè 2026"
               className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-yellow-500/50 outline-none transition-colors"
             />
           </div>
@@ -124,19 +124,19 @@ export default function VoucherModal({ isOpen, onClose }: VoucherModalProps) {
           <div className="grid grid-cols-2 gap-4">
              {/* Type */}
             <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">Reward Type</label>
+              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">Loại Phần Thưởng</label>
               <select 
                 value={form.type}
                 onChange={e => setForm(f => ({ ...f, type: parseInt(e.target.value) }))}
                 className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-yellow-500/50 outline-none transition-colors appearance-none"
               >
-                <option value={0} className="bg-[#0f1115]">Percentage (%)</option>
-                <option value={1} className="bg-[#0f1115]">Fixed Amount ($)</option>
+                <option value={0} className="bg-[#0f1115]">Phần trăm (%)</option>
+                <option value={1} className="bg-[#0f1115]">Số tiền cố định (VNĐ)</option>
               </select>
             </div>
             {/* Value */}
             <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">Value</label>
+              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">Giá trị</label>
               <input 
                 type="number"
                 value={form.value}
@@ -148,7 +148,7 @@ export default function VoucherModal({ isOpen, onClose }: VoucherModalProps) {
 
           {/* Expiry */}
           <div>
-            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">Expiry (Days from now)</label>
+            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">Thời hạn (Ngày kể từ hôm nay)</label>
             <input 
               type="number"
               value={form.expiryDays}
@@ -165,11 +165,12 @@ export default function VoucherModal({ isOpen, onClose }: VoucherModalProps) {
             {bulkMutation.isPending ? <Loader2 className="animate-spin" size={18} /> : (
               <>
                 <Sparkles size={18} className="group-hover:rotate-12 transition-transform" />
-                LAUNCH CAMPAIGN
+                BẮT ĐẦU TẶNG QUÀ
               </>
             )}
           </button>
         </form>
+
       </motion.div>
     </motion.div>
   );
