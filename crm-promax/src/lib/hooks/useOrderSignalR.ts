@@ -10,10 +10,8 @@ export function useOrderSignalR() {
   const connectionRef = useRef<signalR.HubConnection | null>(null);
 
   useEffect(() => {
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5248';
-    
     const connection = new signalR.HubConnectionBuilder()
-      .withUrl(`${backendUrl}/notificationHub`)
+      .withUrl('/notificationHub')
       .withAutomaticReconnect()
       .configureLogging(signalR.LogLevel.Information)
       .build();
