@@ -6,7 +6,7 @@ import { ChefHat, Clock, CheckCircle2, AlertCircle, Loader2, UtensilsCrossed, Ch
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 import { cn } from '@/lib/utils';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 import { useOrderSignalR } from '@/lib/hooks/useOrderSignalR';
 
 interface OrderItem {
@@ -45,7 +45,7 @@ export default function KitchenPage() {
     mutationFn: ({ id, status }: { id: number, status: number }) => apiClient.patch(`/order/${id}/status`, status, { headers: { 'Content-Type': 'application/json' } }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
-      toast.success('Đã cập nhật trạng thái đơn hàng!');
+      toast.success('Đã cập nhật trạng thái đơn hàng thành công!');
     }
   });
 

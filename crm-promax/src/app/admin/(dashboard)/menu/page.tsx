@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import MenuFormModal from '@/components/admin/menu/MenuFormModal';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 
 interface MenuItem {
   id: number;
@@ -56,7 +56,7 @@ export default function MenuPage() {
     mutationFn: (newItem: any) => apiClient.post('/menu/item', newItem),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['menu'] });
-      toast.success('Đã thêm món ăn mới!');
+      toast.success('Đã thêm món ăn mới thành công!');
     }
   });
 
@@ -74,7 +74,7 @@ export default function MenuPage() {
     mutationFn: (id: number) => apiClient.delete(`/menu/item/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['menu'] });
-      toast.success('Đã xóa món ăn.');
+      toast.success('Đã xóa món ăn thành công.');
     },
     onError: (err: any) => {
       toast.error(err.response?.data || "Không thể xóa món ăn này.");

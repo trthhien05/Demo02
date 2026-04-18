@@ -6,7 +6,7 @@ import { Users, Plus, Search, Loader2, ShieldCheck, Mail, Phone, Briefcase, Tras
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 import { cn } from '@/lib/utils';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 
 interface StaffMember {
   id: number;
@@ -42,7 +42,7 @@ export default function StaffPage() {
     mutationFn: (id: number) => apiClient.delete(`/users/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['staff'] });
-      toast.success('Đã xóa nhân viên');
+      toast.success('Đã xóa nhân viên thành công');
     },
     onError: (err: any) => toast.error(err.response?.data || 'Không thể xóa nhân viên')
   });
@@ -186,7 +186,7 @@ function StaffModal({ isOpen, onClose, initialData }: { isOpen: boolean, onClose
       : apiClient.post('/users', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['staff'] });
-      toast.success(initialData ? 'Đã cập nhật' : 'Đã tạo thành công');
+      toast.success(initialData ? 'Cập nhật nhân sự thành công' : 'Đã tạo tài khoản thành công');
       onClose();
     },
     onError: (err: any) => toast.error(err.response?.data || 'Đã xảy ra lỗi')

@@ -4,7 +4,7 @@ import { X, Upload, Loader2, Image as ImageIcon } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 
 const itemSchema = z.object({
   name: z.string().min(2, "Tên món ăn quá ngắn"),
@@ -115,6 +115,7 @@ export default function MenuFormModal({ isOpen, onClose, categories, onSubmitIte
       } else {
         await onSubmitItem(data);
       }
+      toast.success(editItem ? "Cập nhật thành công!" : "Đã thêm món mới thành công!");
       onClose();
     } catch (err: any) {
       toast.error(err.message || "Lỗi khi lưu món ăn");

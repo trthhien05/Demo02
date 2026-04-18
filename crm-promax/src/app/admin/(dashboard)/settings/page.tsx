@@ -6,7 +6,7 @@ import { Settings2, Save, Store, Globe, MapPin, Phone, Mail, Percent, CreditCard
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 import { cn } from '@/lib/utils';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 
 interface RestaurantSetting {
   id: number;
@@ -45,9 +45,8 @@ export default function SettingsPage() {
     mutationFn: (data: RestaurantSetting) => apiClient.put('/settings', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings'] });
-      toast.success('Đã lưu cài đặt hệ thống', {
-         icon: '⚙️',
-         className: 'font-bold'
+      toast.success('Đã cập nhật cài đặt hệ thống thành công!', {
+         description: 'Các thay đổi sẽ có hiệu lực ngay lập tức trên toàn hệ thống.'
       });
     },
     onError: () => toast.error('Không thể lưu cài đặt')

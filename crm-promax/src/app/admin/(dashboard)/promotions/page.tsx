@@ -10,7 +10,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 import { cn } from '@/lib/utils';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 import VoucherModal from '@/components/admin/promotions/VoucherModal';
 
 interface Voucher {
@@ -34,7 +34,7 @@ function SMSCampaignModal({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
   const mutation = useMutation({
     mutationFn: (data: any) => apiClient.post('/marketing/bulk-campaign', data),
     onSuccess: (res: any) => {
-      toast.success(res.data.message || 'Campaign queued!');
+      toast.success(res.data.message || 'Khởi tạo chiến dịch SMS thành công!');
       onClose();
     },
     onError: (err: any) => toast.error(err.response?.data || 'Failed to send campaign.')

@@ -6,7 +6,7 @@ import { X, Gift, Loader2, Sparkles, Target, Users } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 import { cn } from '@/lib/utils';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 
 interface VoucherModalProps {
   isOpen: boolean;
@@ -31,7 +31,9 @@ export default function VoucherModal({ isOpen, onClose }: VoucherModalProps) {
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vouchers'] });
-      toast.success('Campaign launched! Vouchers are being generated.');
+      toast.success('Chiến dịch đã khởi động!', {
+        description: 'Vouchers đang được tạo và gửi đến khách hàng.'
+      });
       onClose();
     },
     onError: (err: any) => toast.error(err.response?.data || 'Failed to create vouchers.')
