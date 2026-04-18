@@ -76,4 +76,30 @@ public class VoucherService : IVoucherService
             .Where(v => v.Customer != null && v.Customer.PhoneNumber == phoneNumber && !v.IsUsed && v.ExpiryDate > DateTime.UtcNow)
             .ToListAsync();
     }
+
+    public async Task<List<Voucher>> GetAllVouchersAsync()
+    {
+        return await _context.Vouchers
+            .Include(v => v.Customer)
+            .OrderByDescending(v => v.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task<int> GenerateBulkItemsAsync(string description, DiscountType type, decimal value, int expiryDays, CustomerTier? targetTier)
+    {
+        var query = _context.Customers.AsQueryable();
+        if (targetTier.HasValue)
+        {
+            query = query.Where(c => c.Tier == targetTier.Value);
+        }
+
+        var customers = await query.ToListAsync();
+        foreach (var customer in customers)
+        {
+            await GenerateVoucherAsync(customer.Id, description, type, value, expiryDays);
+        }
+
+        return customers.Count;
+    }
 }
+

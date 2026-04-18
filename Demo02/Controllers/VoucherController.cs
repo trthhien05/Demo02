@@ -60,7 +60,47 @@ public class VoucherController : ControllerBase
             return BadRequest(ex.Message);
         }
     }
+
+    // GET: api/voucher
+    [HttpGet]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> GetAll()
+    {
+        return Ok(await _voucherService.GetAllVouchersAsync());
+    }
+
+    // POST: api/voucher/bulk-give
+    [HttpPost("bulk-give")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> BulkGive([FromBody] BulkGiveRequest request)
+    {
+        try
+        {
+            var count = await _voucherService.GenerateBulkItemsAsync(
+                request.Description,
+                request.Type,
+                request.Value,
+                request.ExpiryDays,
+                request.TargetTier);
+
+            return Ok(new { Message = $"Tặng Voucher thành công cho {count} khách hàng!", Count = count });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
 }
+
+public class BulkGiveRequest
+{
+    public string Description { get; set; } = "Voucher chiến dịch";
+    public DiscountType Type { get; set; }
+    public decimal Value { get; set; }
+    public int ExpiryDays { get; set; } = 30;
+    public CustomerTier? TargetTier { get; set; }
+}
+
 
 public class RedeemRequest
 {

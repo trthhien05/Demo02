@@ -4,6 +4,7 @@ using ConnectDB.Messaging;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
+using ConnectDB.Models;
 
 namespace ConnectDB.Controllers;
 
@@ -59,6 +60,36 @@ public class MarketingController : ControllerBase
 
         return Accepted(new { Message = "Campaign message queued successfully." });
     }
+
+    // POST api/marketing/bulk-campaign
+    [HttpPost("bulk-campaign")]
+    public async Task<IActionResult> SendBulkCampaign([FromBody] BulkCampaignRequest request)
+    {
+        var query = _context.Customers.Where(c => !c.IsOptOutMarketing);
+
+        if (request.TargetTier.HasValue)
+        {
+            query = query.Where(c => c.Tier == request.TargetTier.Value);
+        }
+
+        if (!string.IsNullOrEmpty(request.TargetSegment))
+        {
+            query = query.Where(c => c.Segment == request.TargetSegment);
+        }
+
+        var customers = await query.ToListAsync();
+        
+        foreach (var customer in customers)
+        {
+            await _messageQueue.PutMessageAsync(new CampaignMessage
+            {
+                CustomerPhone = customer.PhoneNumber,
+                DefaultContent = request.MessageContent
+            });
+        }
+
+        return Accepted(new { Message = $"Bulk campaign queued for {customers.Count} customers." });
+    }
 }
 
 public class OptOutRequest
@@ -71,3 +102,11 @@ public class SendCampaignRequest
     public string CustomerPhone { get; set; } = string.Empty;
     public string MessageContent { get; set; } = string.Empty;
 }
+
+public class BulkCampaignRequest
+{
+    public string MessageContent { get; set; } = string.Empty;
+    public CustomerTier? TargetTier { get; set; }
+    public string? TargetSegment { get; set; }
+}
+
