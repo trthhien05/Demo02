@@ -40,9 +40,13 @@ public class OrderController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> CreateOrder(Order order)
     {
-        // 1. Kiểm tra bàn
-        var table = await _context.DiningTables.FindAsync(order.DiningTableId);
-        if (table == null) return BadRequest("Bàn không tồn tại");
+        // 1. Kiểm tra bàn (nếu có)
+        DiningTable? table = null;
+        if (order.DiningTableId.HasValue)
+        {
+            table = await _context.DiningTables.FindAsync(order.DiningTableId);
+            if (table == null) return BadRequest("Bàn không tồn tại");
+        }
 
         // 2. Tính toán TotalAmount và gán UnitPrice từ MenuItem thực tế
         decimal total = 0;
@@ -57,22 +61,34 @@ public class OrderController : ControllerBase
         order.TotalAmount = total;
         order.CreatedAt = DateTime.UtcNow;
 
-        // 3. Cập nhật trạng thái bàn
-        table.Status = TableStatus.Occupied;
+        // 3. Cập nhật trạng thái bàn (nếu có)
+        if (table != null)
+        {
+            table.Status = TableStatus.Occupied;
+        }
 
         _context.Orders.Add(order);
         await _context.SaveChangesAsync();
 
         // 4. SignalR: Thông báo cho Bếp và Cập nhật sơ đồ bàn
-        await _hubContext.Clients.All.SendAsync("OrderCreated", order.Id, table.TableNumber);
-        await _hubContext.Clients.All.SendAsync("TableStatusChanged", table.Id, table.Status.ToString());
-        await _hubContext.Clients.All.SendAsync("ReceiveNotification", "Hệ thống POS", $"Bàn {table.TableNumber} vừa tạo Order mới!");
+        if (table != null)
+        {
+            await _hubContext.Clients.All.SendAsync("OrderCreated", order.Id, table.TableNumber);
+            await _hubContext.Clients.All.SendAsync("TableStatusChanged", table.Id, table.Status.ToString());
+            await _hubContext.Clients.All.SendAsync("ReceiveNotification", "Hệ thống POS", $"Bàn {table.TableNumber} vừa tạo Order mới!");
+        }
+        else
+        {
+            await _hubContext.Clients.All.SendAsync("OrderCreated", order.Id, "MANG VỀ");
+            await _hubContext.Clients.All.SendAsync("ReceiveNotification", "Hệ thống POS", "Vừa có đơn hàng MANG VỀ mới!");
+        }
 
         // Audit Log
         var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (int.TryParse(userIdStr, out var userId))
         {
-            await _audit.LogAsync(userId, "Tạo mới", "Đơn hàng", $"Đã tạo đơn hàng mới #{order.Id} cho bàn {table.TableNumber}");
+            string target = table != null ? $"bàn {table.TableNumber}" : "mang về";
+            await _audit.LogAsync(userId, "Tạo mới", "Đơn hàng", $"Đã tạo đơn hàng mới #{order.Id} cho {target}");
         }
 
         return Ok(order);

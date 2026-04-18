@@ -8,11 +8,10 @@ public class Order
     [Key]
     public int Id { get; set; }
 
-    [Required]
-    public int DiningTableId { get; set; }
-
+    public int? DiningTableId { get; set; }
+    
     [ForeignKey("DiningTableId")]
-    public DiningTable DiningTable { get; set; } = null!;
+    public DiningTable? DiningTable { get; set; }
 
     public OrderStatus Status { get; set; } = OrderStatus.Pending;
 

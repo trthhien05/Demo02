@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import CheckoutModal from '@/components/admin/orders/CheckoutModal';
+import OrderModal from '@/components/admin/orders/OrderModal';
 import { useOrderSignalR } from '@/lib/hooks/useOrderSignalR';
 
 // Maps to .NET Enums
@@ -46,6 +47,7 @@ const STATUS_MAP: Record<number, { label: string, color: string, icon: React.Rea
 export default function OrdersPage() {
   const [search, setSearch] = useState('');
   const [checkoutTarget, setCheckoutTarget] = useState<{ id: number, tableNumber: string } | null>(null);
+  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   
   // Real-time synchronization
   useOrderSignalR();
@@ -88,6 +90,7 @@ export default function OrdersPage() {
             <Filter size={18} /> Lọc
           </button>
           <motion.button 
+            onClick={() => setIsOrderModalOpen(true)}
             whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
             className="group relative p-[1px] rounded-2xl overflow-hidden bg-gradient-to-r from-primary to-accent"
           >
@@ -136,7 +139,9 @@ export default function OrdersPage() {
                       
                       <div className="flex items-start justify-between mb-5 relative z-10">
                          <div>
-                            <h3 className="text-3xl font-black italic tracking-tighter">Bàn {order.diningTable?.tableNumber || '?'}</h3>
+                            <h3 className={cn("text-3xl font-black italic tracking-tighter", !order.diningTable && "text-emerald-400")}>
+                               {order.diningTable?.tableNumber ? `Bàn ${order.diningTable.tableNumber}` : 'MANG VỀ'}
+                            </h3>
                             <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1">Mã ĐH: #{order.id.toString().padStart(5, '0')}</p>
                          </div>
                          <div className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[10px] font-black uppercase tracking-widest bg-background/50 backdrop-blur-md", status.color)}>
@@ -198,6 +203,11 @@ export default function OrdersPage() {
          onClose={() => setCheckoutTarget(null)} 
          orderId={checkoutTarget?.id || null}
          tableNumber={checkoutTarget?.tableNumber || ''}
+      />
+
+      <OrderModal 
+         isOpen={isOrderModalOpen}
+         onClose={() => setIsOrderModalOpen(false)}
       />
     </div>
   );
