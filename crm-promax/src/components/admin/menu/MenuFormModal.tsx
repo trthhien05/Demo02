@@ -8,11 +8,11 @@ import { toast } from 'react-hot-toast';
 
 const itemSchema = z.object({
   name: z.string().min(2, "Tên món ăn quá ngắn"),
-  price: z.coerce.number().min(0, "Giá cả không hợp lệ"),
+  price: z.number().min(0, "Giá cả không hợp lệ"),
   description: z.string().optional(),
-  categoryId: z.coerce.number().min(1, "Vui lòng chọn danh mục"),
+  categoryId: z.number().min(1, "Vui lòng chọn danh mục"),
   imageUrl: z.string().optional(),
-  isAvailable: z.boolean().default(true)
+  isAvailable: z.boolean()
 });
 
 type ItemFormValues = z.infer<typeof itemSchema>;
@@ -186,13 +186,13 @@ export default function MenuFormModal({ isOpen, onClose, categories, onSubmitIte
 
                 <div>
                   <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">Mức Giá (VND)</label>
-                  <input type="number" {...register('price')} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-emerald-500/50 outline-none transition-colors font-mono" placeholder="0.00" />
+                  <input type="number" {...register('price', { valueAsNumber: true })} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-emerald-500/50 outline-none transition-colors font-mono" placeholder="0.00" />
                   {errors.price && <p className="text-red-400 text-xs mt-1">{errors.price.message}</p>}
                 </div>
 
                 <div>
                   <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">Danh Mục</label>
-                  <select {...register('categoryId')} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-emerald-500/50 outline-none transition-colors appearance-none">
+                  <select {...register('categoryId', { valueAsNumber: true })} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-emerald-500/50 outline-none transition-colors appearance-none">
                     {categories.map(c => (
                       <option key={c.id} value={c.id} className="bg-[#0f1115]">{c.name}</option>
                     ))}
