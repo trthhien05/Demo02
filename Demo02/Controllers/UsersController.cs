@@ -5,22 +5,26 @@ using ConnectDB.Models;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Cryptography;
 using System.Text;
+using ConnectDB.Services;
 
 namespace ConnectDB.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "Admin")]
+[Authorize] // Require authentication for all endpoints
 public class UsersController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly IAuditService _audit;
 
-    public UsersController(AppDbContext context)
+    public UsersController(AppDbContext context, IAuditService audit)
     {
         _context = context;
+        _audit = audit;
     }
 
     [HttpGet]
+    [Authorize(Roles = "Admin")] // Restrict listing to Admins only
     public async Task<IActionResult> GetAllStaff()
     {
         var users = await _context.Users
@@ -39,7 +43,60 @@ public class UsersController : ControllerBase
         return Ok(users);
     }
 
+    [HttpGet("profile")]
+    public async Task<IActionResult> GetProfile()
+    {
+        var userId = int.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "0");
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null) return NotFound();
+
+        return Ok(user);
+    }
+
+    [HttpPut("profile")]
+    public async Task<IActionResult> UpdateProfile(UpdateProfileRequest request)
+    {
+        var userId = int.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "0");
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null) return NotFound();
+
+        user.FullName = request.FullName;
+        user.Email = request.Email;
+        user.PhoneNumber = request.PhoneNumber;
+        user.Address = request.Address;
+        user.Bio = request.Bio;
+        user.AvatarUrl = request.AvatarUrl;
+        user.DateOfBirth = request.DateOfBirth;
+        user.Gender = request.Gender;
+        user.Department = request.Department;
+
+        await _context.SaveChangesAsync();
+        await _audit.LogAsync(userId, "Cập nhật", "Hồ sơ", "Người dùng đã cập nhật thông tin cá nhân");
+
+        return Ok(user);
+    }
+
+    [HttpPost("change-password")]
+    public async Task<IActionResult> ChangePassword(ChangePasswordRequest request)
+    {
+        var userId = int.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "0");
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null) return NotFound();
+
+        if (user.PasswordHash != HashPassword(request.OldPassword))
+        {
+            return BadRequest(new { Message = "Mật khẩu cũ không chính xác" });
+        }
+
+        user.PasswordHash = HashPassword(request.NewPassword);
+        await _context.SaveChangesAsync();
+        await _audit.LogAsync(userId, "Cập nhật", "Bảo mật", "Người dùng đã thay đổi mật khẩu");
+
+        return Ok(new { Message = "Đổi mật khẩu thành công" });
+    }
+
     [HttpPost]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> CreateStaff(CreateStaffRequest request)
     {
         if (await _context.Users.AnyAsync(u => u.Username == request.Username))
@@ -63,6 +120,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> UpdateStaff(int id, UpdateStaffRequest request)
     {
         var user = await _context.Users.FindAsync(id);
@@ -84,6 +142,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> DeleteStaff(int id)
     {
         var user = await _context.Users.FindAsync(id);
@@ -125,4 +184,23 @@ public class UpdateStaffRequest
     public string? Email { get; set; }
     public string? PhoneNumber { get; set; }
     public string? Department { get; set; }
+}
+
+public class UpdateProfileRequest
+{
+    public string FullName { get; set; } = string.Empty;
+    public string? Email { get; set; }
+    public string? PhoneNumber { get; set; }
+    public string? Address { get; set; }
+    public string? Bio { get; set; }
+    public string? AvatarUrl { get; set; }
+    public DateTime? DateOfBirth { get; set; }
+    public string? Gender { get; set; }
+    public string? Department { get; set; }
+}
+
+public class ChangePasswordRequest
+{
+    public string OldPassword { get; set; } = string.Empty;
+    public string NewPassword { get; set; } = string.Empty;
 }
