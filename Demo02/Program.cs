@@ -118,6 +118,7 @@ builder.Services.AddScoped<ILoyaltyService, LoyaltyService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IAuditService, AuditService>();
 
 // Messaging & Background Services
 builder.Services.AddSingleton<IMessageQueue, InMemoryMessageQueue>();

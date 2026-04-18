@@ -2,7 +2,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ConnectDB.Data;
 using ConnectDB.Models;
+using ConnectDB.Services;
 using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace ConnectDB.Controllers;
 
@@ -11,10 +13,12 @@ namespace ConnectDB.Controllers;
 public class SettingsController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly IAuditService _audit;
 
-    public SettingsController(AppDbContext context)
+    public SettingsController(AppDbContext context, IAuditService audit)
     {
         _context = context;
+        _audit = audit;
     }
 
     [HttpGet]
@@ -49,6 +53,11 @@ public class SettingsController : ControllerBase
         settings.Website = updatedSettings.Website;
 
         await _context.SaveChangesAsync();
+
+        // Audit Log
+        var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+        await _audit.LogAsync(userId, "Cập nhật", "Cài đặt", $"Đã cập nhật cấu hình hệ thống: {settings.Name}");
+
         return Ok(settings);
     }
 }

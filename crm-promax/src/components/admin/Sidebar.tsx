@@ -17,7 +17,9 @@ import {
   Tag,
   Loader2,
   ShieldCheck,
-  Settings2
+  Settings2,
+  BarChart3,
+  History
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -30,6 +32,8 @@ const navItems = [
   { name: 'Tổng Quan', icon: LayoutDashboard, href: '/admin' },
   { name: 'Đơn Hàng', icon: ShoppingCart, href: '/admin/orders' },
   { name: 'Nhà Bếp', icon: ChefHat, href: '/admin/kitchen' },
+  { name: 'Phân Tích', icon: BarChart3, href: '/admin/reports' },
+  { name: 'Nhật Ký', icon: History, href: '/admin/logs' },
   { name: 'Đặt Bàn', icon: CalendarDays, href: '/admin/reservations' },
   { name: 'Thực Đơn', icon: UtensilsCrossed, href: '/admin/menu' },
   { name: 'Kho Hàng', icon: Package, href: '/admin/inventory' },

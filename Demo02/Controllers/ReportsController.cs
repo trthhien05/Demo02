@@ -164,5 +164,57 @@ public class ReportsController : ControllerBase
         var bytes = System.Text.Encoding.UTF8.GetPreamble().Concat(System.Text.Encoding.UTF8.GetBytes(csv.ToString())).ToArray();
         return File(bytes, "text/csv", $"RevenueReport_{days}Days.csv");
     }
+
+    // --- NEW ADVANCED ANALYTICS ---
+
+    [HttpGet("busy-hours")]
+    public async Task<IActionResult> GetBusyHours()
+    {
+        var orders = await _context.Orders
+            .Where(o => o.CreatedAt >= DateTime.UtcNow.AddDays(-30))
+            .ToListAsync();
+
+        var hourStats = orders
+            .GroupBy(o => o.CreatedAt.Hour)
+            .Select(g => new { Hour = g.Key, Count = g.Count() })
+            .OrderBy(x => x.Hour)
+            .ToList();
+
+        return Ok(hourStats);
+    }
+
+    [HttpGet("category-revenue")]
+    public async Task<IActionResult> GetCategoryRevenue()
+    {
+        var categoryData = await _context.OrderItems
+            .Include(oi => oi.MenuItem)
+            .ThenInclude(mi => mi.Category)
+            .GroupBy(oi => oi.MenuItem.Category.Name)
+            .Select(g => new { Category = g.Key, Revenue = g.Sum(oi => oi.Quantity * oi.UnitPrice) })
+            .OrderByDescending(x => x.Revenue)
+            .ToListAsync();
+
+        return Ok(categoryData);
+    }
+
+    [HttpGet("top-spenders")]
+    public async Task<IActionResult> GetTopSpenders()
+    {
+        var spenders = await _context.Invoices
+            .Where(i => i.Status == InvoiceStatus.Paid && i.CustomerId != null)
+            .Include(i => i.Customer)
+            .GroupBy(i => new { i.CustomerId, i.Customer.FullName })
+            .Select(g => new { 
+                CustomerId = g.Key.CustomerId, 
+                Name = g.Key.FullName, 
+                TotalSpent = g.Sum(i => i.FinalAmount),
+                OrderCount = g.Count()
+            })
+            .OrderByDescending(x => x.TotalSpent)
+            .Take(10)
+            .ToListAsync();
+
+        return Ok(spenders);
+    }
 }
 

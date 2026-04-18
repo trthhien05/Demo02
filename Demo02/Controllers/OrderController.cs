@@ -5,6 +5,8 @@ using ConnectDB.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using ConnectDB.Hubs;
+using ConnectDB.Services;
+using System.Security.Claims;
 
 namespace ConnectDB.Controllers;
 
@@ -14,11 +16,13 @@ public class OrderController : ControllerBase
 {
     private readonly AppDbContext _context;
     private readonly IHubContext<NotificationHub> _hubContext;
+    private readonly IAuditService _audit;
 
-    public OrderController(AppDbContext context, IHubContext<NotificationHub> hubContext)
+    public OrderController(AppDbContext context, IHubContext<NotificationHub> hubContext, IAuditService audit)
     {
         _context = context;
         _hubContext = hubContext;
+        _audit = audit;
     }
 
     [HttpGet]
@@ -64,6 +68,13 @@ public class OrderController : ControllerBase
         await _hubContext.Clients.All.SendAsync("TableStatusChanged", table.Id, table.Status.ToString());
         await _hubContext.Clients.All.SendAsync("ReceiveNotification", "Hệ thống POS", $"Bàn {table.TableNumber} vừa tạo Order mới!");
 
+        // Audit Log
+        var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (int.TryParse(userIdStr, out var userId))
+        {
+            await _audit.LogAsync(userId, "Tạo mới", "Đơn hàng", $"Đã tạo đơn hàng mới #{order.Id} cho bàn {table.TableNumber}");
+        }
+
         return Ok(order);
     }
 
@@ -79,6 +90,13 @@ public class OrderController : ControllerBase
         // SignalR: Thông báo trạng thái mới (cho Bếp hoặc Nhân viên phục vụ)
         await _hubContext.Clients.All.SendAsync("OrderStatusChanged", id, status.ToString());
         
+        // Audit Log
+        var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (int.TryParse(userIdStr, out var userId))
+        {
+            await _audit.LogAsync(userId, "Cập nhật", "Đơn hàng", $"Đã thay đổi trạng thái đơn hàng #{id} thành {status}");
+        }
+
         return Ok(order);
     }
 }

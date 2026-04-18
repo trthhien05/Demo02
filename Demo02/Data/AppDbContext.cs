@@ -25,6 +25,7 @@ public class AppDbContext : DbContext
     public DbSet<Recipe> Recipes { get; set; }
     public DbSet<Shift> Shifts { get; set; }
     public DbSet<RestaurantSetting> RestaurantSettings { get; set; }
+    public DbSet<AuditLog> AuditLogs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
