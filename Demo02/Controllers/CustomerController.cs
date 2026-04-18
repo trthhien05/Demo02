@@ -121,7 +121,54 @@ public class CustomerController : ControllerBase
         await _context.SaveChangesAsync();
         return Ok();
     }
+
+    // GET: api/customer/{id}/stats
+    [HttpGet("{id}/stats")]
+    public async Task<IActionResult> GetCustomerStats(int id)
+    {
+        var customer = await _context.Customers.FindAsync(id);
+        if (customer == null) return NotFound();
+
+        var invoices = await _context.Invoices
+            .Where(i => i.CustomerId == id && i.Status == InvoiceStatus.Paid)
+            .OrderByDescending(i => i.IssuedAt)
+            .Select(i => new {
+                i.Id,
+                i.FinalAmount,
+                i.IssuedAt,
+                i.PaymentMethod
+            })
+            .Take(10)
+            .ToListAsync();
+
+        var totalSpent = await _context.Invoices
+            .Where(i => i.CustomerId == id && i.Status == InvoiceStatus.Paid)
+            .SumAsync(i => i.FinalAmount);
+
+        var visitCount = await _context.Reservations
+            .Where(r => r.CustomerId == id && r.Status == ReservationStatus.Seated || r.Status == ReservationStatus.Completed)
+            .CountAsync();
+
+        return Ok(new {
+            TotalSpent = totalSpent,
+            VisitCount = visitCount,
+            RecentInvoices = invoices
+        });
+    }
+
+    // POST: api/customer/{id}/adjust-points
+    [HttpPost("{id}/adjust-points")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> AdjustPoints(int id, [FromBody] int pointsDelta)
+    {
+        var customer = await _context.Customers.FindAsync(id);
+        if (customer == null) return NotFound();
+        customer.Points = Math.Max(0, customer.Points + pointsDelta);
+        await _context.SaveChangesAsync();
+        return Ok(new { Message = "Cập nhật điểm thành công", NewPoints = customer.Points });
+    }
 }
+
 
 public class MergeRequest
 {
