@@ -11,7 +11,7 @@ public class InMemoryMessageQueue : IMessageQueue
 
     public InMemoryMessageQueue()
     {
-        // Khởi tạo channel không giới hạn để chứa Message
+        // Khởi tạo channel không giới hạn để chứa Message//
         var options = new UnboundedChannelOptions
         {
             SingleWriter = false,
