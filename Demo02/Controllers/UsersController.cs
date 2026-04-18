@@ -1,86 +1,128 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using ConnectDB.Services;
-using System.Security.Claims;
+using Microsoft.EntityFrameworkCore;
+using ConnectDB.Data;
 using ConnectDB.Models;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace ConnectDB.Controllers;
 
-[Authorize]
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Roles = "Admin")]
 public class UsersController : ControllerBase
 {
-    private readonly IAuthService _authService;
+    private readonly AppDbContext _context;
 
-    public UsersController(IAuthService authService)
+    public UsersController(AppDbContext context)
     {
-        _authService = authService;
+        _context = context;
     }
 
-    [AllowAnonymous]
-    [HttpGet("ping")]
-    public IActionResult Ping() => Ok("UsersController is alive!");
-
-    [HttpGet("profile")]
-    public async Task<IActionResult> GetProfile()
+    [HttpGet]
+    public async Task<IActionResult> GetAllStaff()
     {
-        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var user = await _authService.GetByIdAsync(userId);
-        if (user == null) return NotFound(new { Message = "User not found" });
+        var users = await _context.Users
+            .Select(u => new 
+            {
+                u.Id,
+                u.Username,
+                u.FullName,
+                u.Role,
+                u.Email,
+                u.PhoneNumber,
+                u.Department,
+                u.CreatedAt
+            })
+            .ToListAsync();
+        return Ok(users);
+    }
 
-        return Ok(new
+    [HttpPost]
+    public async Task<IActionResult> CreateStaff(CreateStaffRequest request)
+    {
+        if (await _context.Users.AnyAsync(u => u.Username == request.Username))
+            return BadRequest("Tên đăng nhập đã tồn tại");
+
+        var user = new User
         {
-            user.Username,
-            user.FullName,
-            user.Email,
-            user.Role,
-            user.PhoneNumber,
-            user.AvatarUrl,
-            user.Bio,
-            user.DateOfBirth,
-            user.Gender,
-            user.Address,
-            user.Department
-        });
+            Username = request.Username,
+            PasswordHash = HashPassword(request.Password),
+            FullName = request.FullName,
+            Role = request.Role,
+            Email = request.Email,
+            PhoneNumber = request.PhoneNumber,
+            Department = request.Department,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
+        return Ok(user);
     }
 
-    [HttpPut("profile")]
-    public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateStaff(int id, UpdateStaffRequest request)
     {
-        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var result = await _authService.UpdateProfileAsync(userId, request.FullName, request.Email, request.PhoneNumber, request.AvatarUrl, request.Bio, request.DateOfBirth, request.Gender, request.Address, request.Department);
-        if (!result) return BadRequest(new { Message = "Update failed" });
+        var user = await _context.Users.FindAsync(id);
+        if (user == null) return NotFound();
 
-        return Ok(new { Message = "Profile updated successfully" });
+        user.FullName = request.FullName;
+        user.Role = request.Role;
+        user.Email = request.Email;
+        user.PhoneNumber = request.PhoneNumber;
+        user.Department = request.Department;
+
+        if (!string.IsNullOrEmpty(request.Password))
+        {
+            user.PasswordHash = HashPassword(request.Password);
+        }
+
+        await _context.SaveChangesAsync();
+        return Ok(user);
     }
 
-    [HttpPost("change-password")]
-    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteStaff(int id)
     {
-        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var result = await _authService.ChangePasswordAsync(userId, request.OldPassword, request.NewPassword);
-        if (!result) return BadRequest(new { Message = "Mật khẩu cũ không chính xác hoặc lỗi hệ thống." });
+        var user = await _context.Users.FindAsync(id);
+        if (user == null) return NotFound();
+        
+        // Prevent deleting yourself
+        var currentUserId = int.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "0");
+        if (id == currentUserId) return BadRequest("Bạn không thể xóa chính tài khoản của mình");
 
-        return Ok(new { Message = "Mật khẩu đã được thay đổi thành công." });
+        _context.Users.Remove(user);
+        await _context.SaveChangesAsync();
+        return Ok();
+    }
+
+    private string HashPassword(string password)
+    {
+        using var sha256 = SHA256.Create();
+        var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
+        return BitConverter.ToString(hashedBytes).Replace("-", "").ToLower();
     }
 }
 
-public class UpdateProfileRequest
+public class CreateStaffRequest
 {
-    public string FullName { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
+    public string Username { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+    public string? FullName { get; set; }
+    public UserRole Role { get; set; }
+    public string? Email { get; set; }
     public string? PhoneNumber { get; set; }
-    public string? AvatarUrl { get; set; }
-    public string? Bio { get; set; }
-    public DateTime? DateOfBirth { get; set; }
-    public string? Gender { get; set; }
-    public string? Address { get; set; }
     public string? Department { get; set; }
 }
 
-public class ChangePasswordRequest
+public class UpdateStaffRequest
 {
-    public string OldPassword { get; set; } = string.Empty;
-    public string NewPassword { get; set; } = string.Empty;
+    public string? Password { get; set; }
+    public string? FullName { get; set; }
+    public UserRole Role { get; set; }
+    public string? Email { get; set; }
+    public string? PhoneNumber { get; set; }
+    public string? Department { get; set; }
 }

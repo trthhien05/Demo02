@@ -8,13 +8,16 @@ import {
   Users, 
   ShoppingCart, 
   UtensilsCrossed, 
+  ChefHat,
   Settings, 
   LogOut,
   ChevronLeft,
   Package,
   CalendarDays,
   Tag,
-  Loader2
+  Loader2,
+  ShieldCheck,
+  Settings2
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -26,11 +29,14 @@ import { toast } from 'sonner';
 const navItems = [
   { name: 'Tổng Quan', icon: LayoutDashboard, href: '/admin' },
   { name: 'Đơn Hàng', icon: ShoppingCart, href: '/admin/orders' },
-  { name: 'Khách Hàng', icon: Users, href: '/admin/customers' },
-  { name: 'Kho Hàng', icon: Package, href: '/admin/inventory' },
-  { name: 'Thực Đơn', icon: UtensilsCrossed, href: '/admin/menu' },
+  { name: 'Nhà Bếp', icon: ChefHat, href: '/admin/kitchen' },
   { name: 'Đặt Bàn', icon: CalendarDays, href: '/admin/reservations' },
+  { name: 'Thực Đơn', icon: UtensilsCrossed, href: '/admin/menu' },
+  { name: 'Kho Hàng', icon: Package, href: '/admin/inventory' },
+  { name: 'Khách Hàng', icon: Users, href: '/admin/customers' },
   { name: 'Khuyến Mãi', icon: Tag, href: '/admin/promotions' },
+  { name: 'Nhân Sự', icon: ShieldCheck, href: '/admin/staff' },
+  { name: 'Cài Đặt', icon: Settings2, href: '/admin/settings' },
   { name: 'Tài Khoản', icon: Settings, href: '/admin/profile' },
 ];
 

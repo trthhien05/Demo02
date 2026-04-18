@@ -24,10 +24,15 @@ public class AppDbContext : DbContext
     public DbSet<InventoryItem> InventoryItems { get; set; }
     public DbSet<Recipe> Recipes { get; set; }
     public DbSet<Shift> Shifts { get; set; }
+    public DbSet<RestaurantSetting> RestaurantSettings { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        // Precision cho Restaurant Settings
+        modelBuilder.Entity<RestaurantSetting>().Property(r => r.TaxRate).HasPrecision(18, 2);
+        modelBuilder.Entity<RestaurantSetting>().Property(r => r.ServiceCharge).HasPrecision(18, 2);
 
         // Precision cho Kho
         modelBuilder.Entity<InventoryItem>().Property(i => i.StockQuantity).HasPrecision(18, 3);
