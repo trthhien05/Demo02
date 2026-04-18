@@ -149,7 +149,7 @@ public class ReportsController : ControllerBase
         var revenueData = await _context.Invoices
             .Where(i => i.IssuedAt >= targetDate && i.Status == InvoiceStatus.Paid)
             .OrderByDescending(i => i.IssuedAt)
-            .Select(i => new { i.InvoiceNumber, i.IssuedAt, i.FinalAmount, i.PaymentMethod })
+            .Select(i => new { i.Id, i.IssuedAt, i.FinalAmount, i.PaymentMethod })
             .ToListAsync();
 
         var csv = new System.Text.StringBuilder();
@@ -157,7 +157,7 @@ public class ReportsController : ControllerBase
 
         foreach (var r in revenueData)
         {
-            csv.AppendLine($"{r.InvoiceNumber},{r.IssuedAt.ToString("yyyy-MM-dd HH:mm")},{r.FinalAmount},{r.PaymentMethod}");
+            csv.AppendLine($"INV{r.Id:D6},{r.IssuedAt.ToString("yyyy-MM-dd HH:mm")},{r.FinalAmount},{r.PaymentMethod}");
         }
 
         // Add BOM for Excel UTF-8 compatibility
