@@ -8,9 +8,9 @@ import { toast } from 'react-hot-toast';
 
 const itemSchema = z.object({
   name: z.string().min(2, "Tên món ăn quá ngắn"),
-  price: z.preprocess((val) => Number(val), z.number().min(0, "Giá cả không hợp lệ")),
+  price: z.coerce.number().min(0, "Giá cả không hợp lệ"),
   description: z.string().optional(),
-  categoryId: z.preprocess((val) => Number(val), z.number().min(1, "Vui lòng chọn danh mục")),
+  categoryId: z.coerce.number().min(1, "Vui lòng chọn danh mục"),
   imageUrl: z.string().optional(),
   isAvailable: z.boolean().default(true)
 });
