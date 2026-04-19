@@ -202,8 +202,8 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// Seed Initial Data (Users)
-DataSeeder.SeedUsers(app.Services);
+// Seed Initial Data (Comprehensive)
+DataSeeder.SeedAll(app.Services);
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

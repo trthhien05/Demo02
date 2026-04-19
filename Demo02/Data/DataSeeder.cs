@@ -8,57 +8,204 @@ namespace ConnectDB.Data;
 
 public static class DataSeeder
 {
-    public static void SeedUsers(IServiceProvider serviceProvider)
+    public static void SeedAll(IServiceProvider serviceProvider)
     {
         using var scope = serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        // Kiểm tra nếu đã có User thì không Seed
+        SeedUsers(context);
+        SeedTables(context);
+        SeedMenu(context);
+        SeedCustomers(context);
+        SeedInventory(context);
+        SeedHistory(context); // Orders & Invoices
+        SeedReservations(context);
+        SeedVouchers(context);
+    }
+
+    private static void SeedUsers(AppDbContext context)
+    {
         if (context.Users.Any()) return;
 
         var users = new[]
         {
-            new User 
-            { 
-                Username = "admin", 
-                FullName = "Administrator", 
-                Email = "admin@promax.com",
-                Role = UserRole.Admin, 
-                PasswordHash = HashPassword("123456") 
-            },
-            new User 
-            { 
-                Username = "waiter", 
-                FullName = "Nhân viên Phục vụ", 
-                Email = "waiter@promax.com",
-                Role = UserRole.Waiter, 
-                PasswordHash = HashPassword("123456") 
-            },
-            new User 
-            { 
-                Username = "kitchen", 
-                FullName = "Đầu bếp Chính", 
-                Email = "kitchen@promax.com",
-                Role = UserRole.Kitchen, 
-                PasswordHash = HashPassword("123456") 
-            },
-            new User 
-            { 
-                Username = "cashier", 
-                FullName = "Thu ngân (Cửa hàng)", 
-                Email = "cashier@promax.com",
-                Role = UserRole.Cashier, 
-                PasswordHash = HashPassword("123456") 
-            }
+            new User { Username = "admin", FullName = "VVIP Administrator", Email = "admin@promax.com", Role = UserRole.Admin, PasswordHash = HashPassword("123456") },
+            new User { Username = "waiter", FullName = "Nhân viên Phục vụ", Email = "waiter@promax.com", Role = UserRole.Waiter, PasswordHash = HashPassword("123456") },
+            new User { Username = "kitchen", FullName = "Đầu bếp Chính", Email = "kitchen@promax.com", Role = UserRole.Kitchen, PasswordHash = HashPassword("123456") },
+            new User { Username = "cashier", FullName = "Thu ngân (Cửa hàng)", Email = "cashier@promax.com", Role = UserRole.Cashier, PasswordHash = HashPassword("123456") }
         };
 
         context.Users.AddRange(users);
         context.SaveChanges();
     }
 
+    private static void SeedTables(AppDbContext context)
+    {
+        if (context.DiningTables.Any()) return;
+
+        var tables = new List<DiningTable>();
+        // Indoor Zone
+        for (int i = 1; i <= 5; i++) 
+            tables.Add(new DiningTable { TableNumber = $"I-{i:D2}", Capacity = 4, Status = TableStatus.Available, Zone = "Indoor" });
+        // Outdoor Zone
+        for (int i = 1; i <= 5; i++) 
+            tables.Add(new DiningTable { TableNumber = $"O-{i:D2}", Capacity = 2, Status = TableStatus.Available, Zone = "Outdoor" });
+        // VIP Zone
+        for (int i = 1; i <= 3; i++) 
+            tables.Add(new DiningTable { TableNumber = $"VIP-{i:D2}", Capacity = i * 2 + 4, Status = TableStatus.Available, Zone = "VIP" });
+
+        // Set some mixed statuses
+        tables[0].Status = TableStatus.Occupied;
+        tables[1].Status = TableStatus.Reserved;
+        tables[2].Status = TableStatus.Cleaning;
+        tables[11].Status = TableStatus.Occupied;
+
+        context.DiningTables.AddRange(tables);
+        context.SaveChanges();
+    }
+
+    private static void SeedMenu(AppDbContext context)
+    {
+        if (context.MenuCategories.Any()) return;
+
+        var categories = new[]
+        {
+            new MenuCategory { Name = "Món Chính", Description = "Các món đặc trưng của nhà hàng" },
+            new MenuCategory { Name = "Đồ Uống", Description = "Cocktails, Rượu & Nước ép" },
+            new MenuCategory { Name = "Tráng Miệng", Description = "Bánh ngọt & Trái cây" }
+        };
+        context.MenuCategories.AddRange(categories);
+        context.SaveChanges();
+
+        var mainId = categories[0].Id;
+        var drinkId = categories[1].Id;
+        var dessertId = categories[2].Id;
+
+        var items = new[]
+        {
+            new MenuItem { Name = "Bò Wagyu Nướng Đá", Description = "Thịt bò Wagyu cao cấp nướng trên đá nóng", Price = 1250000, CategoryId = mainId, IsAvailable = true, ImageUrl = "https://images.unsplash.com/photo-1544025162-d76694265947" },
+            new MenuItem { Name = "Cần Tây Sốt Vang", Description = "Món khai vị nhẹ nhàng sang trọng", Price = 150000, CategoryId = mainId, IsAvailable = true, ImageUrl = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c" },
+            new MenuItem { Name = "Cá Hồi Na Uy Áp Chảo", Description = "Cá hồi tươi ngon cùng sốt chanh leo", Price = 450000, CategoryId = mainId, IsAvailable = true, ImageUrl = "https://images.unsplash.com/photo-1467003909585-2f8a72700288" },
+            new MenuItem { Name = "Tôm Hùm Alaska Hấp", Description = "Tôm hùm nguyên con sốt bơ tỏi", Price = 2500000, CategoryId = mainId, IsAvailable = true, ImageUrl = "https://images.unsplash.com/photo-1559742811-822873691df8" },
+            new MenuItem { Name = "Cocktail Signature", Description = "Vị mạnh mẽ từ rượu nền sồi", Price = 280000, CategoryId = drinkId, IsAvailable = true, ImageUrl = "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b" },
+            new MenuItem { Name = "Rượu Vang Đỏ (Ly)", Description = "Vang từ vùng Bordeaux nước Pháp", Price = 195000, CategoryId = drinkId, IsAvailable = true, ImageUrl = "https://images.unsplash.com/photo-1510812431401-41d2bd2722f3" },
+            new MenuItem { Name = "Tiramisu Gold Leaf", Description = "Bánh Tiramisu rắc vàng 24k", Price = 320000, CategoryId = dessertId, IsAvailable = true, ImageUrl = "https://images.unsplash.com/photo-1543508282-5c1f427f023f" }
+        };
+
+        context.MenuItems.AddRange(items);
+        context.SaveChanges();
+    }
+
+    private static void SeedCustomers(AppDbContext context)
+    {
+        if (context.Customers.Any()) return;
+
+        var customers = new[]
+        {
+            new Customer { FullName = "Trần Anh Tuấn", PhoneNumber = "0987654321", Email = "tuan.tran@gmail.com", Points = 5000, Tier = CustomerTier.Diamond, Segment = "VVIP" },
+            new Customer { FullName = "Lê Thị Hồng", PhoneNumber = "0123456789", Email = "hong.le@yahoo.com", Points = 2500, Tier = CustomerTier.Gold, Segment = "Regular" },
+            new Customer { FullName = "Nguyễn Văn Nam", PhoneNumber = "0909112233", Email = "nam.nv@fpt.vn", Points = 1200, Tier = CustomerTier.Silver, Segment = "Loyalty" },
+            new Customer { FullName = "Phạm Gia Bảo", PhoneNumber = "0888999000", Email = "baopg@promax.vn", Points = 300, Tier = CustomerTier.Member, Segment = "New" }
+        };
+
+        context.Customers.AddRange(customers);
+        context.SaveChanges();
+    }
+
+    private static void SeedInventory(AppDbContext context)
+    {
+        if (context.InventoryItems.Any()) return;
+
+        var items = new[]
+        {
+            new InventoryItem { Name = "Thịt Bò Wagyu", StockQuantity = 25, Unit = "Kg", MinStockLevel = 5 },
+            new InventoryItem { Name = "Cá Hồi Na Uy", StockQuantity = 15, Unit = "Kg", MinStockLevel = 3 },
+            new InventoryItem { Name = "Tôm Hùm Alaska", StockQuantity = 4, Unit = "Con", MinStockLevel = 5 }, // Low Stock!
+            new InventoryItem { Name = "Rượu Vang Đỏ", StockQuantity = 48, Unit = "Chai", MinStockLevel = 12 },
+            new InventoryItem { Name = "Gạo ST25", StockQuantity = 100, Unit = "Kg", MinStockLevel = 20 }
+        };
+
+        context.InventoryItems.AddRange(items);
+        context.SaveChanges();
+    }
+
+    private static void SeedHistory(AppDbContext context)
+    {
+        if (context.Invoices.Any()) return;
+
+        var random = new Random();
+        var customers = context.Customers.ToList();
+        var tables = context.DiningTables.ToList();
+
+        // Seed Orders and Invoices for the last 30 days
+        for (int i = 30; i >= 0; i--)
+        {
+            var date = DateTime.UtcNow.AddDays(-i);
+            int ordersToday = random.Next(3, 8); // 3-7 orders per day
+
+            for (int k = 0; k < ordersToday; k++)
+            {
+                var customer = customers[random.Next(customers.Count)];
+                var table = tables[random.Next(tables.Count)];
+                var amount = (decimal)random.Next(500000, 5000000);
+
+                var order = new Order
+                {
+                    DiningTableId = table.Id,
+                    Status = OrderStatus.Completed,
+                    TotalAmount = amount,
+                    CreatedAt = date.AddHours(random.Next(11, 22))
+                };
+                context.Orders.Add(order);
+                context.SaveChanges();
+
+                var invoice = new Invoice
+                {
+                    OrderId = order.Id,
+                    CustomerId = customer.Id,
+                    Subtotal = amount * 0.92m,
+                    VatAmount = amount * 0.08m,
+                    FinalAmount = amount,
+                    IssuedAt = order.CreatedAt,
+                    Status = InvoiceStatus.Paid,
+                    PaymentMethod = (PaymentMethod)random.Next(0, 4)
+                };
+                context.Invoices.Add(invoice);
+            }
+        }
+        context.SaveChanges();
+    }
+
+    private static void SeedReservations(AppDbContext context)
+    {
+        if (context.Reservations.Any()) return;
+
+        var customers = context.Customers.ToList();
+        var items = new[]
+        {
+            new Reservation { CustomerId = customers[0].Id, ReservationTime = DateTime.UtcNow.AddHours(2), PaxCount = 4, Status = ReservationStatus.Confirmed, SpecialRequests = "Gần cửa sổ, chuẩn bị hoa chúc mừng sinh nhật." },
+            new Reservation { CustomerId = customers[1].Id, ReservationTime = DateTime.UtcNow.AddDays(1).AddHours(19), PaxCount = 2, Status = ReservationStatus.Confirmed, SpecialRequests = "Kỷ niệm ngày cưới." }
+        };
+        context.Reservations.AddRange(items);
+        context.SaveChanges();
+    }
+
+    private static void SeedVouchers(AppDbContext context)
+    {
+        if (context.Vouchers.Any()) return;
+
+        var customers = context.Customers.ToList();
+        var items = new[]
+        {
+            new Voucher { CustomerId = customers[0].Id, Code = "DIAMOND_2024", Description = "Ưu đãi hạng Diamond", Value = 20, DiscountType = DiscountType.Percentage, ExpiryDate = DateTime.UtcNow.AddMonths(2), IsUsed = false },
+            new Voucher { CustomerId = customers[1].Id, Code = "WELCOME_HONG", Description = "Chào mừng khách hàng mới", Value = 200000, DiscountType = DiscountType.FixedAmount, ExpiryDate = DateTime.UtcNow.AddDays(7), IsUsed = false }
+        };
+        context.Vouchers.AddRange(items);
+        context.SaveChanges();
+    }
+
     private static string HashPassword(string password)
     {
-        // Replicate logic from AuthService.cs for Seeding
         byte[] salt = RandomNumberGenerator.GetBytes(16);
         byte[] hash = Rfc2898DeriveBytes.Pbkdf2(
             password,
