@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import MenuFormModal from '@/components/admin/menu/MenuFormModal';
+import CategoryManagementModal from '@/components/admin/menu/CategoryManagementModal';
 import { toast } from 'sonner';
 
 interface MenuItem {
@@ -33,6 +34,7 @@ export default function MenuPage() {
   const [searchQuery, setSearchQuery] = useState('');
   
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
 
   // Fetch Menu
@@ -78,6 +80,16 @@ export default function MenuPage() {
     },
     onError: (err: any) => {
       toast.error(err.response?.data || "Không thể xóa món ăn này.");
+    }
+  });
+
+  // Toggle Availability Mutation
+  const toggleMutation = useMutation({
+    mutationFn: (data: { id: number, isAvailable: boolean }) => 
+      apiClient.put(`/menu/item/${data.id}`, { ...data, isAvailable: !data.isAvailable }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['menu'] });
+      toast.success('Đã cập nhật trạng thái món ăn');
     }
   });
 
@@ -141,7 +153,10 @@ export default function MenuPage() {
               className="pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-2xl outline-none focus:border-emerald-500/50 transition-colors focus:bg-white/10 w-[220px]"
             />
           </div>
-          <button className="flex items-center gap-2 px-6 py-3 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 transition-all font-bold text-sm">
+          <button 
+             onClick={() => setIsCategoryModalOpen(true)}
+             className="flex items-center gap-2 px-6 py-3 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 transition-all font-bold text-sm"
+          >
             <Layers size={18} /> Quản lý Danh Mục
           </button>
           <motion.button 
@@ -246,8 +261,29 @@ export default function MenuPage() {
                           <p className="text-xs text-muted-foreground line-clamp-2">{item.description || 'Không có mô tả'}</p>
                        </div>
                        <div className="mt-4 flex items-center justify-between">
-                          <span className="font-mono font-black text-emerald-400 text-xl">${item.price.toLocaleString()}</span>
-                          <span className="text-[10px] text-muted-foreground font-mono">ID:{item.id}</span>
+                          <div className="flex flex-col">
+                             <span className="font-mono font-black text-emerald-400 text-xl leading-none">
+                                {item.price.toLocaleString()}
+                                <span className="text-[10px] ml-1 opacity-60">VNĐ</span>
+                             </span>
+                          </div>
+                          
+                          {/* Quick Toggle */}
+                          <button 
+                             onClick={(e) => {
+                                e.stopPropagation();
+                                toggleMutation.mutate({ id: item.id, isAvailable: item.isAvailable });
+                             }}
+                             className={cn(
+                                "w-10 h-5 rounded-full transition-all relative overflow-hidden",
+                                item.isAvailable ? "bg-emerald-500 shadow-lg shadow-emerald-500/20" : "bg-white/10"
+                             )}
+                          >
+                             <motion.div 
+                                animate={{ x: item.isAvailable ? 20 : 4 }}
+                                className="absolute top-1 w-3 h-3 rounded-full bg-white shadow-sm" 
+                             />
+                          </button>
                        </div>
                     </div>
                   </motion.div>
@@ -265,6 +301,11 @@ export default function MenuPage() {
         categories={categories.map(c => ({ id: c.id, name: c.name }))}
         editItem={editingItem}
         onSubmitItem={handleSubmitItem}
+      />
+
+      <CategoryManagementModal 
+         isOpen={isCategoryModalOpen}
+         onClose={() => setIsCategoryModalOpen(false)}
       />
     </div>
   );

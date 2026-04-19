@@ -20,9 +20,24 @@ public class ShiftController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> GetShifts()
     {
         return Ok(await _context.Shifts.Include(s => s.User).OrderByDescending(s => s.StartTime).ToListAsync());
+    }
+
+    [HttpGet("user/{id}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> GetUserShifts(int id)
+    {
+        return Ok(await _context.Shifts.Where(s => s.UserId == id).OrderByDescending(s => s.StartTime).ToListAsync());
+    }
+
+    [HttpGet("my")]
+    public async Task<IActionResult> GetMyShifts()
+    {
+        var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+        return Ok(await _context.Shifts.Where(s => s.UserId == userId).OrderByDescending(s => s.StartTime).Take(50).ToListAsync());
     }
 
     [HttpPost("clock-in")]

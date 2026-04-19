@@ -51,6 +51,10 @@ public class SettingsController : ControllerBase
         settings.ServiceCharge = updatedSettings.ServiceCharge;
         settings.Email = updatedSettings.Email;
         settings.Website = updatedSettings.Website;
+        settings.OpeningHours = updatedSettings.OpeningHours;
+        settings.FacebookUrl = updatedSettings.FacebookUrl;
+        settings.InstagramUrl = updatedSettings.InstagramUrl;
+        settings.ZaloNumber = updatedSettings.ZaloNumber;
 
         await _context.SaveChangesAsync();
 

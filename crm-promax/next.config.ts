@@ -5,15 +5,15 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'https://demo02-backend.onrender.com/api/:path*',
+        destination: 'http://localhost:5013/api/:path*',
       },
       {
         source: '/notificationHub',
-        destination: 'https://demo02-backend.onrender.com/notificationHub',
+        destination: 'http://localhost:5013/notificationHub',
       },
       {
         source: '/notificationHub/:path*',
-        destination: 'https://demo02-backend.onrender.com/notificationHub/:path*',
+        destination: 'http://localhost:5013/notificationHub/:path*',
       },
     ];
   },

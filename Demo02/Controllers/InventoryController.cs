@@ -89,4 +89,19 @@ public class InventoryController : ControllerBase
         await _context.SaveChangesAsync();
         return Ok(recipe);
     }
+
+    [Authorize(Roles = "Admin")]
+    [HttpPost("adjust/{id}")]
+    public async Task<IActionResult> AdjustStock(int id, [FromQuery] decimal amount)
+    {
+        var item = await _context.InventoryItems.FindAsync(id);
+        if (item == null) return NotFound();
+        
+        item.StockQuantity += amount;
+        if (item.StockQuantity < 0) item.StockQuantity = 0;
+        item.LastUpdated = DateTime.UtcNow;
+        
+        await _context.SaveChangesAsync();
+        return Ok(item);
+    }
 }

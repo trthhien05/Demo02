@@ -216,5 +216,27 @@ public class ReportsController : ControllerBase
 
         return Ok(spenders);
     }
+
+    [HttpGet("marketing-stats")]
+    public async Task<IActionResult> GetMarketingStats()
+    {
+        var totalVouchers = await _context.Vouchers.CountAsync();
+        var usedVouchers = await _context.Vouchers.CountAsync(v => v.IsUsed);
+        
+        // Doanh thu từ các hóa đơn có dùng Voucher
+        // Giả sử có bảng Invoice có liên kết với Voucher hoặc dùng mã Voucher ghi lại
+        // Ở đây ta tính tổng tiền các Invoice có CustomerId và có dùng điểm/voucher
+        var marketingRevenue = await _context.Invoices
+            .Where(i => i.Status == InvoiceStatus.Paid && i.DiscountAmount > 0)
+            .SumAsync(i => i.FinalAmount);
+
+        return Ok(new
+        {
+            TotalVouchers = totalVouchers,
+            UsedVouchers = usedVouchers,
+            RedemptionRate = totalVouchers > 0 ? (double)usedVouchers / totalVouchers * 100 : 0,
+            MarketingRevenue = marketingRevenue
+        });
+    }
 }
 

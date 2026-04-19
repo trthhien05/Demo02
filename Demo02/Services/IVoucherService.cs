@@ -11,5 +11,6 @@ public interface IVoucherService
     Task<List<Voucher>> GetCustomerVouchersAsync(string phoneNumber);
     Task<List<Voucher>> GetAllVouchersAsync();
     Task<int> GenerateBulkItemsAsync(string description, DiscountType type, decimal value, int expiryDays, CustomerTier? targetTier);
+    Task<bool> RevokeVoucherAsync(int id);
 }
 

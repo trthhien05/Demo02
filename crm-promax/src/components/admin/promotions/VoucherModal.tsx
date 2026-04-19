@@ -36,7 +36,7 @@ export default function VoucherModal({ isOpen, onClose }: VoucherModalProps) {
       });
       onClose();
     },
-    onError: (err: any) => toast.error(err.response?.data || 'Failed to create vouchers.')
+    onError: (err: any) => toast.error(err.response?.data || 'Lỗi khi tạo chiến dịch voucher.')
   });
 
   if (!isOpen) return null;
@@ -44,7 +44,7 @@ export default function VoucherModal({ isOpen, onClose }: VoucherModalProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (form.value <= 0) {
-      toast.error('Value must be greater than 0');
+      toast.error('Giá trị voucher phải lớn hơn 0');
       return;
     }
     await bulkMutation.mutateAsync(form);
@@ -141,8 +141,11 @@ export default function VoucherModal({ isOpen, onClose }: VoucherModalProps) {
               <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">Giá trị</label>
               <input 
                 type="number"
-                value={form.value}
-                onChange={e => setForm(f => ({ ...f, value: parseFloat(e.target.value) }))}
+                value={form.value || ''}
+                onChange={e => {
+                  const val = parseFloat(e.target.value);
+                  setForm(f => ({ ...f, value: isNaN(val) ? 0 : val }));
+                }}
                 className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-yellow-500/50 outline-none transition-colors font-mono"
               />
             </div>
@@ -153,8 +156,11 @@ export default function VoucherModal({ isOpen, onClose }: VoucherModalProps) {
             <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">Thời hạn (Ngày kể từ hôm nay)</label>
             <input 
               type="number"
-              value={form.expiryDays}
-              onChange={e => setForm(f => ({ ...f, expiryDays: parseInt(e.target.value) }))}
+              value={form.expiryDays || ''}
+              onChange={e => {
+                const val = parseInt(e.target.value);
+                setForm(f => ({ ...f, expiryDays: isNaN(val) ? 0 : val }));
+              }}
               className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-yellow-500/50 outline-none transition-colors font-mono"
             />
           </div>

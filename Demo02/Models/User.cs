@@ -52,4 +52,6 @@ public class User
 
     [MaxLength(100)]
     public string? Department { get; set; }
+
+    public bool IsActive { get; set; } = true;
 }

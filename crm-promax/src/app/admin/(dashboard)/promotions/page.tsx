@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Tag, Plus, MessageSquareShare, Search, Loader2, 
   Gift, Users, TrendingUp, Calendar, Send, Sparkles,
-  Ticket, CheckCircle2, Clock, MapPin, X
+  Ticket, CheckCircle2, Clock, MapPin, X, Trash2, Star
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
@@ -26,7 +26,30 @@ interface Voucher {
 }
 
 // ── SMS Modal ──────────────────────────────────────────────────────────────────
-function SMSCampaignModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+interface SMSCampaignModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const MARKETING_TEMPLATES = [
+  {
+    title: 'Tri ân khách hàng',
+    content: 'Chào {{name}}, nhân dịp kỷ niệm, VIP PROMAX gửi tặng quý khách lời cảm ơn chân thành. Gửi bạn mã ưu đãi {{code}} giảm {{value}}. Hạn dùng: {{expiry}}. Hân hạnh phục vụ!',
+    icon: <Star className="text-yellow-500" size={14} />
+  },
+  {
+    title: 'Chào mừng thành viên',
+    content: 'CHÀO MỪNG {{name}}! Bạn đã chính thức trở thành hội viên VIP PROMAX. Tặng bạn Voucher {{code}} giảm ngay {{value}} cho lần ghé thăm tiếp theo. Hẹn sớm gặp lại bạn!',
+    icon: <Gift className="text-primary" size={14} />
+  },
+  {
+    title: 'Khuyến mãi Giờ vàng',
+    content: 'HAPPY HOUR! {{name}} ơi, từ 14h-16h hôm nay, sử dụng nhanh mã {{code}} để nhận ưu đãi {{value}} cực hời. Đừng bỏ lỡ nhé!',
+    icon: <Clock className="text-orange-400" size={14} />
+  }
+];
+
+function SMSCampaignModal({ isOpen, onClose }: SMSCampaignModalProps) {
   const [target, setTarget] = useState({ tier: '', segment: '' });
   const [content, setContent] = useState('');
   const [sending, setSending] = useState(false);
@@ -37,14 +60,14 @@ function SMSCampaignModal({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
       toast.success(res.data.message || 'Khởi tạo chiến dịch SMS thành công!');
       onClose();
     },
-    onError: (err: any) => toast.error(err.response?.data || 'Failed to send campaign.')
+    onError: (err: any) => toast.error(err.response?.data || 'Lỗi khi gửi chiến dịch SMS.')
   });
 
   if (!isOpen) return null;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!content.trim()) { toast.error('Message content is required'); return; }
+    if (!content.trim()) { toast.error('Vui lòng nhập nội dung tin nhắn'); return; }
     setSending(true);
     try {
       await mutation.mutateAsync({
@@ -94,8 +117,32 @@ function SMSCampaignModal({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
             </select>
           </div>
 
+          {/* Quick Templates */}
+          <div className="mb-6">
+            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 block">Mẫu tin nhắn nhanh</label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {MARKETING_TEMPLATES.map((tmpl, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setContent(tmpl.content)}
+                  className="p-3 bg-white/5 border border-white/10 rounded-xl hover:bg-primary/10 hover:border-primary/30 transition-all text-left group"
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    {tmpl.icon}
+                    <span className="text-[10px] font-black uppercase tracking-wider text-white group-hover:text-primary transition-colors">{tmpl.title}</span>
+                  </div>
+                  <p className="text-[9px] text-muted-foreground line-clamp-1">{tmpl.content}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div>
-            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">Nội Dung Tin Nhắn</label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Nội dung tin nhắn</label>
+              <div className="text-[10px] text-primary font-bold">Dùng {'{{name}}'} để chèn tên khách</div>
+            </div>
             <textarea 
               value={content}
               onChange={e => setContent(e.target.value)}
@@ -130,12 +177,28 @@ export default function PromotionsPage() {
   const [search, setSearch] = useState('');
   const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
   const [isSMSModalOpen, setIsSMSModalOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data: vouchers = [], isLoading } = useQuery<Voucher[]>({
     queryKey: ['vouchers'],
     queryFn: async () => (await apiClient.get('/voucher')).data,
     refetchInterval: 60000
   });
+
+  const revokeMutation = useMutation({
+    mutationFn: (id: number) => apiClient.delete(`/voucher/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vouchers'] });
+      toast.success('Đã thu hồi Voucher thành công!');
+    },
+    onError: (err: any) => toast.error(err.response?.data || 'Lỗi khi thu hồi voucher.')
+  });
+
+  const handleRevoke = (id: number) => {
+    if (confirm("Bạn có chắc chắn muốn thu hồi Voucher này? Thao tác này không thể hoàn tác.")) {
+      revokeMutation.mutate(id);
+    }
+  };
 
   const stats = useMemo(() => ({
     total: vouchers.length,
@@ -237,6 +300,7 @@ export default function PromotionsPage() {
                     <th className="py-4 px-6 text-[10px] font-black text-muted-foreground tracking-[0.2em] uppercase">Giá trị</th>
                     <th className="py-4 px-6 text-[10px] font-black text-muted-foreground tracking-[0.2em] uppercase">Người nhận</th>
                     <th className="py-4 px-6 text-[10px] font-black text-muted-foreground tracking-[0.2em] uppercase">Trạng thái</th>
+                    <th className="py-4 px-6 text-[10px] font-black text-muted-foreground tracking-[0.2em] uppercase text-right">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -274,6 +338,17 @@ export default function PromotionsPage() {
                             ) : (
                               <span className="text-[10px] font-black uppercase text-yellow-400 bg-yellow-400/10 px-2 py-1 rounded-full border border-yellow-400/30 w-fit">Đang chạy</span>
                             )}
+                          </td>
+                          <td className="py-4 px-6 text-right">
+                             {!v.isUsed && !isExpired && (
+                               <button 
+                                 onClick={() => handleRevoke(v.id)}
+                                 className="p-2.5 rounded-xl bg-white/5 border border-white/5 text-muted-foreground hover:text-red-400 hover:bg-red-400/10 transition-all"
+                                 title="Thu hồi Voucher"
+                               >
+                                 <Trash2 size={14} />
+                               </button>
+                             )}
                           </td>
                         </motion.tr>
                       );

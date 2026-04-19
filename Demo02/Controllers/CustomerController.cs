@@ -100,6 +100,7 @@ public class CustomerController : ControllerBase
         customer.Email = updatedCustomer.Email;
         customer.DateOfBirth = updatedCustomer.DateOfBirth;
         customer.Gender = updatedCustomer.Gender;
+        customer.Segment = updatedCustomer.Segment;
 
         await _context.SaveChangesAsync();
         return Ok(customer);

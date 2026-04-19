@@ -10,7 +10,7 @@ import {
   Download,
   Loader2
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   AreaChart, 
   Area, 
@@ -29,11 +29,16 @@ import apiClient from '@/lib/api-client';
 
 export default function AdminDashboard() {
   const [isMounted, setIsMounted] = React.useState(false);
+  const [isChartsMounted, setIsChartsMounted] = React.useState(false);
   const [daysFilter, setDaysFilter] = React.useState(7);
   const [isExporting, setIsExporting] = React.useState(false);
+  const [isFilterOpen, setIsFilterOpen] = React.useState(false);
 
   React.useEffect(() => {
     setIsMounted(true);
+    // Delay chart mounting to ensure layout stability (fixes width 0 warnings)
+    const timer = setTimeout(() => setIsChartsMounted(true), 1000);
+    return () => clearTimeout(timer);
   }, []);
 
   // 1. Revenue Stats (dynamic days)
@@ -128,11 +133,50 @@ export default function AdminDashboard() {
           <h1 className="text-4xl font-black mt-2 tracking-tight">Trung Tâm <span className="title-gradient bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">Hiệu Suất</span></h1>
         </motion.div>
 
-        <div className="flex gap-4">
-          <button className="flex items-center gap-2 px-6 py-3 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 transition-all font-bold text-sm">
-            <Filter size={18} />
-            Bộ Lọc
-          </button>
+        <div className="flex gap-4 relative">
+          <div className="relative">
+            <button 
+              onClick={() => setIsFilterOpen(!isFilterOpen)}
+              className={cn(
+                "flex items-center gap-2 px-6 py-3 border rounded-2xl transition-all font-bold text-sm",
+                isFilterOpen ? "bg-primary text-white border-primary" : "bg-white/5 border-white/10 text-white hover:bg-white/10"
+              )}
+            >
+              <Filter size={18} />
+              {daysFilter === 1 ? 'Hôm Nay' : `${daysFilter} Ngày`}
+            </button>
+
+            <AnimatePresence>
+              {isFilterOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  className="absolute right-0 mt-3 w-56 bg-[#0c0e12]/95 backdrop-blur-xl border border-white/10 rounded-[2rem] p-3 shadow-2xl z-50 overflow-hidden"
+                >
+                  <div className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground p-3">Thời gian báo cáo</div>
+                  <div className="space-y-1">
+                    {[1, 7, 14, 30].map((days) => (
+                      <button
+                        key={days}
+                        onClick={() => {
+                          setDaysFilter(days);
+                          setIsFilterOpen(false);
+                        }}
+                        className={cn(
+                          "w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all text-sm font-bold",
+                          daysFilter === days ? "bg-primary text-white" : "text-muted-foreground hover:bg-white/5 hover:text-white"
+                        )}
+                      >
+                        {days === 1 ? 'Hôm Nay' : `${days} Ngày Qua`}
+                        {daysFilter === days && <TrendingUp size={14} />}
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
           {/* VIP Export Button Area */}
           <motion.div 
             whileHover={{ scale: 1.02 }}
@@ -234,8 +278,8 @@ export default function AdminDashboard() {
                   <div className="w-48 h-4 bg-white/10 rounded-full mb-4" />
                   <div className="w-32 h-4 bg-white/5 rounded-full" />
                </div>
-            ) : isMounted ? chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
+            ) : isChartsMounted && chartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
@@ -283,7 +327,7 @@ export default function AdminDashboard() {
                <div className="w-full h-full flex flex-col items-center justify-center opacity-50">
                   <span className="text-sm">Chưa đủ dữ liệu để vẽ biểu đồ</span>
                </div>
-            ) : null}
+            )}
           </div>
         </motion.div>
 

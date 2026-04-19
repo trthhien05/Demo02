@@ -81,10 +81,12 @@ public class MarketingController : ControllerBase
         
         foreach (var customer in customers)
         {
+            var personalContent = request.MessageContent.Replace("{{name}}", customer.FullName ?? "Quý khách");
+            
             await _messageQueue.PutMessageAsync(new CampaignMessage
             {
                 CustomerPhone = customer.PhoneNumber,
-                DefaultContent = request.MessageContent
+                DefaultContent = personalContent
             });
         }
 

@@ -8,7 +8,10 @@ import apiClient from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import CheckoutModal from '@/components/admin/orders/CheckoutModal';
 import OrderModal from '@/components/admin/orders/OrderModal';
+import OrderDetailModal from '@/components/admin/orders/OrderDetailModal';
 import { useOrderSignalR } from '@/lib/hooks/useOrderSignalR';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 // Maps to .NET Enums
 type OrderStatus = 0 | 1 | 2 | 3 | 4; 
@@ -45,9 +48,34 @@ const STATUS_MAP: Record<number, { label: string, color: string, icon: React.Rea
 };
 
 export default function OrdersPage() {
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [checkoutTarget, setCheckoutTarget] = useState<{ id: number, tableNumber: string } | null>(null);
+  const [selectedOrderDetails, setSelectedOrderDetails] = useState<Order | null>(null);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<number | 'all'>('all');
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  
+  // Mutations
+  const updateStatusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: number, status: number }) => 
+      apiClient.patch(`/order/${id}/status`, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      toast.success("Cập nhật trạng thái thành công!");
+    },
+    onError: (err: any) => toast.error("Không thể cập nhật trạng thái", {
+      description: err.response?.data || "Vui lòng kiểm tra lại."
+    })
+  });
+
+  const handleCancelOrder = (e: React.MouseEvent, orderId: number) => {
+    e.stopPropagation();
+    if (window.confirm("Bạn có chắc chắn muốn hủy đơn hàng này không?")) {
+      updateStatusMutation.mutate({ id: orderId, status: 4 });
+    }
+  };
   
   // Real-time synchronization
   useOrderSignalR();
@@ -59,12 +87,28 @@ export default function OrdersPage() {
   });
 
   const filteredOrders = useMemo(() => {
-    if (!search.trim()) return orders;
-    return orders.filter(o => 
-      o.diningTable?.tableNumber.includes(search) || 
-      o.id.toString().includes(search)
-    );
-  }, [orders, search]);
+    let result = orders;
+    
+    // 1. Date Filter
+    if (selectedDate) {
+      result = result.filter(o => new Date(o.createdAt).toISOString().split('T')[0] === selectedDate);
+    }
+
+    // 2. Status Filter
+    if (statusFilter !== 'all') {
+      result = result.filter(o => o.status === statusFilter);
+    }
+
+    // 3. Search
+    if (search.trim()) {
+      result = result.filter(o => 
+        o.diningTable?.tableNumber.includes(search) || 
+        o.id.toString().includes(search)
+      );
+    }
+
+    return result;
+  }, [orders, search, statusFilter, selectedDate]);
 
   return (
     <div className="space-y-8 pb-10">
@@ -86,9 +130,68 @@ export default function OrdersPage() {
               className="pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-2xl outline-none focus:border-primary/50 transition-colors focus:bg-white/10 w-[220px]"
             />
           </div>
-          <button className="flex items-center gap-2 px-6 py-3 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 transition-all font-bold text-sm">
-            <Filter size={18} /> Lọc
-          </button>
+          <div className="relative">
+            <button 
+              onClick={() => setIsFilterOpen(!isFilterOpen)}
+              className={cn(
+                "flex items-center gap-2 px-6 py-3 border rounded-2xl transition-all font-bold text-sm",
+                isFilterOpen || statusFilter !== 'all' ? "bg-primary text-white border-primary" : "bg-white/5 border-white/10 text-white hover:bg-white/10"
+              )}
+            >
+              <Filter size={18} />
+              {statusFilter === 'all' ? 'Tất cả trạng thái' : STATUS_MAP[statusFilter as number]?.label}
+            </button>
+
+            <AnimatePresence>
+              {isFilterOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  className="absolute right-0 mt-3 w-64 bg-[#0c0e12]/95 backdrop-blur-xl border border-white/10 rounded-[2rem] p-3 shadow-2xl z-50 overflow-hidden"
+                >
+                  <div className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground p-3">Lọc theo trạng thái</div>
+                  <div className="space-y-1">
+                    <button
+                      onClick={() => { setStatusFilter('all'); setIsFilterOpen(false); }}
+                      className={cn(
+                        "w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all text-sm font-bold",
+                        statusFilter === 'all' ? "bg-primary text-white" : "text-muted-foreground hover:bg-white/5 hover:text-white"
+                      )}
+                    >
+                      Tất cả đơn hàng
+                    </button>
+                    {Object.entries(STATUS_MAP).map(([key, config]) => (
+                      <button
+                        key={key}
+                        onClick={() => {
+                          setStatusFilter(parseInt(key));
+                          setIsFilterOpen(false);
+                        }}
+                        className={cn(
+                          "w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all text-sm font-bold",
+                          statusFilter === parseInt(key) ? "bg-primary text-white" : "text-muted-foreground hover:bg-white/5 hover:text-white"
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          {config.icon}
+                          {config.label}
+                        </div>
+                        {statusFilter === parseInt(key) && <CheckCircle2 size={14} />}
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+          <input 
+            type="date" 
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="px-4 py-3 bg-white/5 border border-white/10 rounded-2xl outline-none focus:border-primary/50 transition-colors focus:bg-white/10 text-xs font-bold"
+          />
+
           <motion.button 
             onClick={() => setIsOrderModalOpen(true)}
             whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
@@ -96,7 +199,7 @@ export default function OrdersPage() {
           >
             <div className="bg-background/90 rounded-[15px] px-6 py-3 flex items-center gap-3 text-primary">
               <Plus size={18} className="group-hover:rotate-90 transition-transform" />
-              <span className="text-sm font-bold">Tạo Order Tại Quầy</span>
+              <span className="text-sm font-bold">POS</span>
             </div>
           </motion.button>
         </div>
@@ -128,8 +231,9 @@ export default function OrdersPage() {
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.9 }}
+                      onClick={() => setSelectedOrderDetails(order)}
                       className={cn(
-                         "glass rounded-[2rem] p-6 border transition-all relative overflow-hidden group hover:-translate-y-1",
+                         "glass rounded-[2rem] p-6 border transition-all relative overflow-hidden group hover:-translate-y-1 cursor-pointer",
                          isCheckoutReady ? "border-emerald-500/30 shadow-[0_10px_40px_rgba(16,185,129,0.1)]" : "border-white/5 hover:border-primary/30 shadow-2xl"
                       )}
                     >
@@ -174,22 +278,32 @@ export default function OrdersPage() {
                                {order.totalAmount?.toLocaleString()} <span className="text-xs not-italic text-muted-foreground ml-1">đ</span>
                             </div>
                          </div>
-                         
-                         {isCheckoutReady && order.status !== 3 && (
-                            <button 
-                               onClick={() => setCheckoutTarget({ id: order.id, tableNumber: order.diningTable?.tableNumber || '?' })}
-                               className="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-black py-4 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_10px_20px_rgba(16,185,129,0.2)] active:scale-95"
-                            >
-                               <Calculator size={18} />
-                               THANH TOÁN
-                            </button>
-                         )}
-                         {order.status === 3 && (
-                            <div className="w-full bg-white/5 text-muted-foreground font-black py-4 px-4 rounded-xl flex items-center justify-center gap-2 border border-white/5 uppercase text-[10px] tracking-widest">
-                               <CheckCircle2 size={16} className="text-emerald-500" /> Đã Thanh Toán
-                            </div>
-                         )}
-                      </div>
+                                                  
+                          {order.status === 0 && (
+                             <button 
+                                onClick={(e) => handleCancelOrder(e, order.id)}
+                                disabled={updateStatusMutation.isPending}
+                                className="w-full bg-red-500/10 hover:bg-red-500/20 text-red-400 font-black py-4 px-4 rounded-xl flex items-center justify-center gap-2 transition-all text-[10px] tracking-widest uppercase"
+                             >
+                                <RotateCcw size={16} /> Hủy Đơn Hàng
+                             </button>
+                          )}
+
+                          {isCheckoutReady && order.status !== 3 && (
+                             <button 
+                                onClick={(e) => { e.stopPropagation(); setCheckoutTarget({ id: order.id, tableNumber: order.diningTable?.tableNumber || '?' }) }}
+                                className="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-black py-4 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_10px_20px_rgba(16,185,129,0.2)] active:scale-95"
+                             >
+                                <Calculator size={18} />
+                                THANH TOÁN
+                             </button>
+                          )}
+                          {order.status === 3 && (
+                             <div className="w-full bg-white/5 text-muted-foreground font-black py-4 px-4 rounded-xl flex items-center justify-center gap-2 border border-white/5 uppercase text-[10px] tracking-widest">
+                                <CheckCircle2 size={16} className="text-emerald-500" /> Đã Thanh Toán
+                             </div>
+                          )}
+                       </div>
                     </motion.div>
                   );
                })}
@@ -205,11 +319,16 @@ export default function OrdersPage() {
          tableNumber={checkoutTarget?.tableNumber || ''}
       />
 
-      <OrderModal 
-         isOpen={isOrderModalOpen}
-         onClose={() => setIsOrderModalOpen(false)}
-      />
+       <OrderModal 
+          isOpen={isOrderModalOpen}
+          onClose={() => setIsOrderModalOpen(false)}
+       />
+
+       <OrderDetailModal 
+          isOpen={!!selectedOrderDetails}
+          onClose={() => setSelectedOrderDetails(null)}
+          order={selectedOrderDetails}
+       />
     </div>
   );
 }
-

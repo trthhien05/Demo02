@@ -5,38 +5,50 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, Plus, Download, Search, Loader2, Crown,
   X, Gift, TrendingUp, ShoppingBag, Calendar,
-  Phone, Mail, Star, Minus, ChevronRight
+  Phone, Mail, Star, Minus, ChevronRight, Edit2
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 import { cn } from '@/lib/utils';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function exportCustomersCSV(customers: any[]) {
-  const header = 'ID,Họ Tên,Số Điện Thoại,Email,Hạng,Điểm,Ngày Tham Gia,Lần Ghé Cuối';
-  const rows = customers.map(c =>
-    [
-      c.id,
-      `"${c.fullName || ''}"`,
-      c.phoneNumber,
-      c.email || '',
-      ['Member', 'Silver', 'Gold', 'Diamond'][c.tier] || 'Member',
-      c.points,
-      new Date(c.createdAt).toLocaleDateString('vi-VN'),
-      c.lastVisit ? new Date(c.lastVisit).toLocaleDateString('vi-VN') : ''
-    ].join(',')
-  );
-  const bom = '\uFEFF';
-  const csv = bom + [header, ...rows].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `customers_${new Date().toISOString().split('T')[0]}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-  toast.success('Đã xuất danh sách khách hàng!');
+  if (customers.length === 0) {
+    toast.error("Không có khách hàng nào để xuất!");
+    return;
+  }
+
+  const tId = toast.loading("Đang nạp dữ liệu khách hàng...");
+  
+  try {
+    const header = 'ID,Họ Tên,Số Điện Thoại,Email,Hạng,Điểm,Ngày Tham Gia,Lần Ghé Cuối,Phân Khúc';
+    const rows = customers.map(c =>
+      [
+        c.id,
+        `"${c.fullName || ''}"`,
+        c.phoneNumber,
+        c.email || '',
+        ['Member', 'Silver', 'Gold', 'Diamond'][c.tier] || 'Member',
+        c.points,
+        new Date(c.createdAt).toLocaleDateString('vi-VN'),
+        c.lastVisit ? new Date(c.lastVisit).toLocaleDateString('vi-VN') : '',
+        `"${c.segment || ''}"`
+      ].join(',')
+    );
+    const bom = '\uFEFF';
+    const csv = bom + [header, ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `customers_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Đã xuất danh sách khách hàng!', { id: tId });
+  } catch (err) {
+    toast.error("Lỗi khi xuất dữ liệu khách hàng", { id: tId });
+  }
 }
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -69,29 +81,39 @@ const TIER_MAP: Record<number, { label: string; color: string; iconColor: string
 
 const PAYMENT_LABELS: Record<number, string> = { 0: 'Tiền mặt', 1: 'Thẻ', 2: 'Chuyển khoản', 3: 'Ví điện tử' };
 
-// ── Add Customer Modal ────────────────────────────────────────────────────────
-function AddCustomerModal({ onClose }: { onClose: () => void }) {
+// ── Customer Form Modal (Add/Edit) ──────────────────────────────────────────────
+function CustomerFormModal({ onClose, editCustomer }: { onClose: () => void, editCustomer?: Customer | null }) {
   const queryClient = useQueryClient();
-  const [form, setForm] = useState({ fullName: '', phoneNumber: '', email: '', gender: '' });
+  const [form, setForm] = useState({ 
+    fullName: editCustomer?.fullName || '', 
+    phoneNumber: editCustomer?.phoneNumber || '', 
+    email: editCustomer?.email || '', 
+    gender: editCustomer?.gender || '',
+    segment: editCustomer?.segment || '' 
+  });
   const [saving, setSaving] = useState(false);
 
-  const createMutation = useMutation({
-    mutationFn: (data: any) => apiClient.post('/customer', data),
+  const mutation = useMutation({
+    mutationFn: (data: any) => editCustomer 
+      ? apiClient.put(`/customer/${editCustomer.id}`, { ...data, id: editCustomer.id })
+      : apiClient.post('/customer', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
-      toast.success('Đã thêm khách hàng mới!');
+      toast.success(editCustomer ? 'Đã cập nhật thông tin khách hàng!' : 'Đã thêm khách hàng mới!');
       onClose();
     },
-    onError: (err: any) => toast.error(err.response?.data || 'Số điện thoại đã tồn tại hoặc dữ liệu không hợp lệ.')
+    onError: (err: any) => toast.error(err.response?.data || 'Có lỗi xảy ra. Vui lòng kiểm tra lại.')
   });
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.phoneNumber.trim()) { toast.error('Số điện thoại là bắt buộc'); return; }
     setSaving(true);
-    try { await createMutation.mutateAsync(form); }
+    try { await mutation.mutateAsync(form); }
     finally { setSaving(false); }
   };
+
+  const segments = ['Mới', 'Trung thành', 'VVIP', 'Khách đoàn', 'Dễ mất', 'Sự kiện'];
 
   return (
     <motion.div
@@ -104,12 +126,12 @@ function AddCustomerModal({ onClose }: { onClose: () => void }) {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
         onClick={e => e.stopPropagation()}
-        className="bg-[#0c0e14] border border-white/10 shadow-2xl rounded-3xl w-full max-w-md overflow-hidden"
+        className="bg-[#0c0e14] border border-white/10 shadow-2xl rounded-3xl w-full max-w-lg overflow-hidden"
       >
         <div className="flex items-center justify-between p-6 border-b border-white/5 bg-white/5">
           <div>
-            <h2 className="text-xl font-bold">Thêm Khách Hàng Mới</h2>
-            <p className="text-xs text-muted-foreground mt-1">Đăng ký vào hệ thống CRM</p>
+            <h2 className="text-xl font-bold">{editCustomer ? 'Chỉnh sửa Thông tin' : 'Thêm Khách Hàng Mới'}</h2>
+            <p className="text-xs text-muted-foreground mt-1">{editCustomer ? `ID: #${editCustomer.id}` : 'Đăng ký vào hệ thống CRM'}</p>
           </div>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-white/10 transition-colors">
             <X size={18} />
@@ -117,54 +139,73 @@ function AddCustomerModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <form onSubmit={submit} className="p-6 space-y-4">
-          <div>
-            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">Số Điện Thoại <span className="text-red-400">*</span></label>
-            <input
-              type="tel" value={form.phoneNumber}
-              onChange={e => setForm(f => ({ ...f, phoneNumber: e.target.value }))}
-              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-blue-500/50 outline-none transition-colors"
-              placeholder="VD: 0901234567"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">Họ và Tên</label>
-            <input
-              value={form.fullName}
-              onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))}
-              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-blue-500/50 outline-none transition-colors"
-              placeholder="Tên đầy đủ của khách"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">Email</label>
-            <input
-              type="email" value={form.email}
-              onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-blue-500/50 outline-none transition-colors"
-              placeholder="email@example.com"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">Giới Tính</label>
-            <select
-              value={form.gender}
-              onChange={e => setForm(f => ({ ...f, gender: e.target.value }))}
-              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-blue-500/50 outline-none transition-colors appearance-none"
-            >
-              <option value="" className="bg-[#0c0e14]">— Chưa xác định —</option>
-              <option value="Nam" className="bg-[#0c0e14]">Nam</option>
-              <option value="Nữ" className="bg-[#0c0e14]">Nữ</option>
-              <option value="Khác" className="bg-[#0c0e14]">Khác</option>
-            </select>
+          <div className="grid grid-cols-2 gap-4">
+             <div className="col-span-2">
+               <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">Số Điện Thoại <span className="text-red-400">*</span></label>
+               <input
+                 type="tel" value={form.phoneNumber}
+                 disabled={!!editCustomer}
+                 onChange={e => setForm(f => ({ ...f, phoneNumber: e.target.value }))}
+                 className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-blue-500/50 outline-none transition-colors disabled:opacity-50"
+                 placeholder="VD: 0901234567"
+               />
+             </div>
+             <div>
+               <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">Họ và Tên</label>
+               <input
+                 value={form.fullName}
+                 onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))}
+                 className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-blue-500/50 outline-none transition-colors"
+                 placeholder="Tên khách"
+               />
+             </div>
+             <div>
+               <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">Giới Tính</label>
+               <select
+                 value={form.gender}
+                 onChange={e => setForm(f => ({ ...f, gender: e.target.value }))}
+                 className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-blue-500/50 outline-none transition-colors appearance-none"
+               >
+                 <option value="" className="bg-[#0c0e14]">Chưa xác định</option>
+                 <option value="Nam" className="bg-[#0c0e14]">Nam</option>
+                 <option value="Nữ" className="bg-[#0c0e14]">Nữ</option>
+               </select>
+             </div>
+             <div className="col-span-2">
+               <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">Email</label>
+               <input
+                 type="email" value={form.email}
+                 onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                 className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-blue-500/50 outline-none transition-colors"
+                 placeholder="email@example.com"
+               />
+             </div>
+             <div className="col-span-2">
+               <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">Phân Khúc Khách Hàng</label>
+               <div className="flex flex-wrap gap-2 pt-1">
+                 {segments.map(s => (
+                    <button
+                       key={s} type="button"
+                       onClick={() => setForm(f => ({ ...f, segment: f.segment === s ? '' : s }))}
+                       className={cn(
+                          "px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border",
+                          form.segment === s ? "bg-blue-500/20 text-blue-400 border-blue-500/30" : "bg-white/5 text-muted-foreground border-white/10"
+                       )}
+                    >
+                       {s}
+                    </button>
+                 ))}
+               </div>
+             </div>
           </div>
 
-          <div className="pt-2 flex justify-end gap-3">
-            <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-xl font-bold text-sm bg-white/5 hover:bg-white/10 transition-colors">Hủy</button>
+          <div className="pt-4 flex justify-end gap-3 border-t border-white/5">
+            <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-xl font-bold text-sm bg-white/5 hover:bg-white/10 transition-colors text-muted-foreground">Hủy</button>
             <button
               type="submit" disabled={saving}
-              className="px-5 py-2.5 rounded-xl font-bold text-sm bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 text-white flex items-center gap-2 min-w-[130px] justify-center"
+              className="px-5 py-2.5 rounded-xl font-bold text-sm bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 text-white flex items-center gap-2 min-w-[140px] justify-center"
             >
-              {saving ? <Loader2 className="animate-spin w-4 h-4" /> : <><Plus size={16} /> Đăng Ký</>}
+              {saving ? <Loader2 className="animate-spin w-4 h-4" /> : <>{editCustomer ? 'Cập Nhật' : 'Đăng Ký Khách'}</>}
             </button>
           </div>
         </form>
@@ -174,7 +215,7 @@ function AddCustomerModal({ onClose }: { onClose: () => void }) {
 }
 
 // ── Customer Profile Modal ─────────────────────────────────────────────────────
-function CustomerProfileModal({ customer, onClose }: { customer: Customer; onClose: () => void }) {
+function CustomerProfileModal({ customer, onClose, onEdit }: { customer: Customer; onClose: () => void; onEdit: () => void }) {
   const queryClient = useQueryClient();
   const [pointsDelta, setPointsDelta] = useState(0);
   const [adjusting, setAdjusting] = useState(false);
@@ -223,11 +264,19 @@ function CustomerProfileModal({ customer, onClose }: { customer: Customer; onClo
             </div>
 
             <div className="flex-1">
-              <div className="flex items-center gap-3 mb-1">
-                <h2 className="text-2xl font-black">{customer.fullName || 'Ẩn danh'}</h2>
-                <div className={cn("flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-bold uppercase", tier.color)}>
-                  <Crown size={12} className={tier.iconColor} /> {tier.label}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3 mb-1">
+                   <h2 className="text-2xl font-black">{customer.fullName || 'Ẩn danh'}</h2>
+                   <div className={cn("flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest", tier.color)}>
+                     <Crown size={12} className={tier.iconColor} /> {tier.label}
+                   </div>
                 </div>
+                <button 
+                  onClick={onEdit}
+                  className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 text-muted-foreground hover:text-white transition-all"
+                >
+                   <Edit2 size={16} />
+                </button>
               </div>
               <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1.5"><Phone size={13} /> {customer.phoneNumber}</span>
@@ -250,7 +299,7 @@ function CustomerProfileModal({ customer, onClose }: { customer: Customer; onClo
           ) : stats && (
             <div className="grid grid-cols-3 gap-4">
               {[
-                { label: 'Tổng Chi Tiêu', value: `$${stats.totalSpent.toLocaleString()}`, icon: <TrendingUp size={16} />, color: 'text-emerald-400' },
+                { label: 'Tổng Chi Tiêu', value: `${stats.totalSpent.toLocaleString()}đ`, icon: <TrendingUp size={16} />, color: 'text-emerald-400' },
                 { label: 'Số Lần Đến', value: stats.visitCount, icon: <Calendar size={16} />, color: 'text-blue-400' },
                 { label: 'Hóa Đơn Gần Đây', value: stats.recentInvoices.length, icon: <ShoppingBag size={16} />, color: 'text-violet-400' },
               ].map(s => (
@@ -337,7 +386,7 @@ function CustomerProfileModal({ customer, onClose }: { customer: Customer; onClo
                         </div>
                       </div>
                     </div>
-                    <div className="font-black text-emerald-400 font-mono">${inv.finalAmount.toLocaleString()}</div>
+                    <div className="font-black text-emerald-400 font-mono">{inv.finalAmount.toLocaleString()}đ</div>
                   </div>
                 ))}
               </div>
@@ -369,7 +418,8 @@ export default function CustomersPage() {
   const [search, setSearch] = useState('');
   const [tierFilter, setTierFilter] = useState<number | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
 
   const { data: customers = [], isLoading } = useQuery<Customer[]>({
     queryKey: ['customers'],
@@ -417,7 +467,7 @@ export default function CustomersPage() {
             <Download size={16} /> Xuất Danh Sách
           </button>
           <motion.button
-            onClick={() => setIsAddModalOpen(true)}
+            onClick={() => { setEditingCustomer(null); setIsFormModalOpen(true); }}
             whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
             className="group relative p-[1px] rounded-2xl overflow-hidden bg-gradient-to-r from-blue-500 to-indigo-500"
           >
@@ -540,14 +590,27 @@ export default function CustomersPage() {
       {/* Profile Modal */}
       <AnimatePresence>
         {selectedCustomer && (
-          <CustomerProfileModal customer={selectedCustomer} onClose={() => setSelectedCustomer(null)} />
+          <CustomerProfileModal 
+             customer={selectedCustomer} 
+             onClose={() => setSelectedCustomer(null)} 
+             onEdit={() => {
+                setEditingCustomer(selectedCustomer);
+                setIsFormModalOpen(true);
+             }}
+          />
         )}
       </AnimatePresence>
 
-      {/* Add Customer Modal */}
+      {/* Add/Edit Modal */}
       <AnimatePresence>
-        {isAddModalOpen && (
-          <AddCustomerModal onClose={() => setIsAddModalOpen(false)} />
+        {isFormModalOpen && (
+          <CustomerFormModal 
+             editCustomer={editingCustomer} 
+             onClose={() => {
+                setIsFormModalOpen(false);
+                setEditingCustomer(null);
+             }} 
+          />
         )}
       </AnimatePresence>
     </div>

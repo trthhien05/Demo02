@@ -9,7 +9,9 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 import { cn } from '@/lib/utils';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
+import { useOrderSignalR } from '@/lib/hooks/useOrderSignalR';
+import ReservationModal from '@/components/admin/reservations/ReservationModal';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type TableStatus = 0 | 1 | 2 | 3; // Available | Reserved | Occupied | Cleaning
@@ -125,19 +127,23 @@ export default function ReservationsPage() {
   const queryClient = useQueryClient();
   const [activeZone, setActiveZone] = useState<string | null>(null);
   const [view, setView] = useState<'map' | 'list'>('map');
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+
+  useOrderSignalR(); // Listen for real-time table status changes
 
   // Fetch tables
   const { data: tables = [], isLoading: tablesLoading } = useQuery<DiningTable[]>({
     queryKey: ['tables'],
     queryFn: async () => (await apiClient.get('/table')).data,
-    refetchInterval: 20000
+    // No refetch interval needed because SignalR handles it
   });
 
-  // Fetch reservations (today)
+  // Fetch reservations
   const { data: reservations = [], isLoading: reservLoading } = useQuery<Reservation[]>({
     queryKey: ['reservations'],
     queryFn: async () => (await apiClient.get('/reservation')).data,
-    refetchInterval: 30000
+    refetchInterval: 30000 // Polling fallback for reservations
   });
 
   const updateStatusMutation = useMutation({
@@ -178,11 +184,10 @@ export default function ReservationsPage() {
   }), [tables]);
 
   const todayReservations = useMemo(() => {
-    const today = new Date().toDateString();
     return reservations
-      .filter(r => new Date(r.reservationTime).toDateString() === today && r.status < 3)
+      .filter(r => new Date(r.reservationTime).toISOString().split('T')[0] === selectedDate && r.status < 3)
       .sort((a, b) => new Date(a.reservationTime).getTime() - new Date(b.reservationTime).getTime());
-  }, [reservations]);
+  }, [reservations, selectedDate]);
 
   const isLoading = tablesLoading || reservLoading;
 
@@ -195,12 +200,19 @@ export default function ReservationsPage() {
           <h1 className="text-4xl font-black mt-2 tracking-tight">Sơ Đồ <span className="bg-clip-text text-transparent bg-gradient-to-r from-violet-400 to-purple-500">Nhà Hàng</span></h1>
         </motion.div>
 
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
+          <button
+            onClick={() => setIsBookingModalOpen(true)}
+            className="flex items-center gap-2 px-6 py-3 bg-violet-500 text-white rounded-2xl hover:bg-violet-400 transition-all text-sm font-bold shadow-lg shadow-violet-500/20"
+          >
+            <Sparkles size={16} /> Đặt Bàn Mới
+          </button>
+          
           <button
             onClick={() => { queryClient.invalidateQueries({ queryKey: ['tables'] }); queryClient.invalidateQueries({ queryKey: ['reservations'] }); }}
             className="flex items-center gap-2 px-5 py-3 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 transition-all text-sm font-bold"
           >
-            <RefreshCw size={16} /> Làm Mới
+            <RefreshCw size={16} />
           </button>
           <div className="flex bg-white/5 border border-white/10 rounded-2xl p-1">
             <button onClick={() => setView('map')} className={cn("px-4 py-2 rounded-xl text-sm font-bold transition-all", view === 'map' ? 'bg-violet-500/20 text-violet-400' : 'text-muted-foreground hover:text-white')}>
@@ -295,10 +307,19 @@ export default function ReservationsPage() {
       ) : (
         /* ─── LIST / RESERVATION VIEW ─── */
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="space-y-4">
-          <div className="flex items-center gap-3 mb-2">
-            <Calendar size={18} className="text-violet-400" />
-            <h2 className="font-bold text-lg">Lịch Đặt Bàn Hôm Nay</h2>
-            <span className="px-2 py-0.5 bg-violet-500/10 text-violet-400 border border-violet-500/20 rounded-full text-xs font-bold">{todayReservations.length}</span>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+            <div className="flex items-center gap-3">
+              <Calendar size={18} className="text-violet-400" />
+              <h2 className="font-bold text-lg">Lịch Đặt Bàn {selectedDate === new Date().toISOString().split('T')[0] ? 'Hôm Nay' : selectedDate.split('-').reverse().join('/')}</h2>
+              <span className="px-2 py-0.5 bg-violet-500/10 text-violet-400 border border-violet-500/20 rounded-full text-xs font-bold">{todayReservations.length}</span>
+            </div>
+            
+            <input 
+              type="date" 
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm font-bold focus:outline-none focus:border-violet-500/50 transition-all"
+            />
           </div>
 
           {todayReservations.length === 0 ? (
@@ -359,6 +380,11 @@ export default function ReservationsPage() {
           )}
         </motion.div>
       )}
+
+      <ReservationModal 
+        isOpen={isBookingModalOpen} 
+        onClose={() => setIsBookingModalOpen(false)} 
+      />
     </div>
   );
 }

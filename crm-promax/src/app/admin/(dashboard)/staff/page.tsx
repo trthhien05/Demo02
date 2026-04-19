@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, Plus, Search, Loader2, ShieldCheck, Mail, Phone, Briefcase, Trash2, Edit3, KeyRound, X } from 'lucide-react';
+import { Users, Plus, Search, Loader2, ShieldCheck, Mail, Phone, Briefcase, Trash2, Edit3, KeyRound, X, Clock, Download } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 import { cn } from '@/lib/utils';
@@ -17,6 +17,8 @@ interface StaffMember {
   phoneNumber: string | null;
   department: string | null;
   createdAt: string;
+  isActive: boolean;
+  isClockedIn: boolean;
 }
 
 const ROLE_MAP: Record<number, { label: string, color: string }> = {
@@ -30,6 +32,8 @@ const ROLE_MAP: Record<number, { label: string, color: string }> = {
 export default function StaffPage() {
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isShiftLogsOpen, setIsShiftLogsOpen] = useState(false);
+  const [shiftTargetId, setShiftTargetId] = useState<number | null>(null);
   const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
   const queryClient = useQueryClient();
 
@@ -46,6 +50,40 @@ export default function StaffPage() {
     },
     onError: (err: any) => toast.error(err.response?.data || 'Không thể xóa nhân viên')
   });
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: ({ id, isActive }: { id: number, isActive: boolean }) => 
+      apiClient.put(`/users/${id}`, { isActive: !isActive }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff'] });
+      toast.success('Cập nhật trạng thái thành công');
+    }
+  });
+
+  const exportStaffCSV = () => {
+    const csvContent = [
+      ['ID', 'Username', 'Họ Tên', 'Vai Trò', 'Email', 'SĐT', 'Phòng Ban', 'Ngày tạo', 'Trạng thái'],
+      ...staffList.map(s => [
+        s.id, 
+        s.username, 
+        s.fullName || '', 
+        ROLE_MAP[s.role]?.label || '', 
+        s.email || '', 
+        s.phoneNumber || '', 
+        s.department || '', 
+        new Date(s.createdAt).toLocaleDateString(),
+        s.isActive ? 'Đang hoạt động' : 'Đã khóa'
+      ])
+    ].map(e => e.join(',')).join('\n');
+
+    const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `VIP_PROMAX_Staff_${new Date().toISOString().split('T')[0]}.csv`);
+    link.click();
+    toast.success('Đã xuất danh sách nhân sự!');
+  };
 
   const filteredStaff = staffList.filter(s => 
     s.fullName?.toLowerCase().includes(search.toLowerCase()) || 
@@ -69,6 +107,13 @@ export default function StaffPage() {
               className="pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-2xl outline-none focus:border-primary/50 transition-colors focus:bg-white/10 w-[250px]"
             />
           </div>
+          <motion.button 
+            onClick={exportStaffCSV}
+            whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+            className="px-4 py-3 bg-white/5 border border-white/10 rounded-2xl font-bold flex items-center gap-2 hover:bg-white/10 transition-colors"
+          >
+            <Download size={18} /> Xuất CSV
+          </motion.button>
           <motion.button 
             onClick={() => { setEditingStaff(null); setIsModalOpen(true); }}
             whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
@@ -98,11 +143,28 @@ export default function StaffPage() {
                   className="glass group rounded-[2rem] p-6 border-white/5 hover:border-primary/30 transition-all relative overflow-hidden"
                 >
                    <div className="flex items-start justify-between mb-4">
-                      <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-primary font-black text-2xl group-hover:bg-primary/10 transition-colors">
-                        {member.fullName?.[0] || member.username[0].toUpperCase()}
+                      <div className="relative">
+                        <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-primary font-black text-2xl group-hover:bg-primary/10 transition-colors">
+                          {member.fullName?.[0] || member.username[0].toUpperCase()}
+                        </div>
+                        {member.isClockedIn && (
+                          <span className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-[#0c0e14] rounded-full animate-pulse" />
+                        )}
                       </div>
-                      <div className={cn("px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border", roleInfo.color)}>
-                        {roleInfo.label}
+                      <div className="flex flex-col items-end gap-2">
+                         <div className={cn("px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border", roleInfo.color)}>
+                           {roleInfo.label}
+                         </div>
+                         {member.isClockedIn && (
+                            <span className="text-[8px] font-black uppercase tracking-widest text-emerald-400 flex items-center gap-1">
+                               <span className="w-1 h-1 bg-emerald-400 rounded-full" /> Đang trực
+                            </span>
+                         )}
+                         {!member.isActive && (
+                            <span className="text-[8px] font-black uppercase tracking-widest text-red-400 bg-red-400/10 px-2 py-0.5 rounded-full border border-red-400/20">
+                               Tài khoản khóa
+                            </span>
+                         )}
                       </div>
                    </div>
 
@@ -129,7 +191,21 @@ export default function StaffPage() {
                         <Edit3 size={14} /> Chỉnh sửa
                       </button>
                       <button 
-                        onClick={() => { if(confirm('Chắc chắn xóa?')) deleteMutation.mutate(member.id); }}
+                        onClick={() => { setShiftTargetId(member.id); setIsShiftLogsOpen(true); }}
+                        className="p-2 bg-white/5 hover:bg-primary/20 hover:text-primary rounded-xl transition-colors"
+                        title="Lịch sử chấm công"
+                      >
+                         <Clock size={16} />
+                      </button>
+                      <button 
+                         onClick={() => toggleActiveMutation.mutate({ id: member.id, isActive: member.isActive })}
+                         className={cn("p-2 rounded-xl transition-colors", member.isActive ? "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20" : "bg-red-500/10 text-red-400 hover:bg-red-500/20")}
+                         title={member.isActive ? "Đang hoạt động - Nhấn để khóa" : "Đã khóa - Nhấn để mở"}
+                      >
+                         <ShieldCheck size={16} />
+                      </button>
+                      <button 
+                        onClick={() => { if(confirm('Chắc chắn xóa vĩnh viễn?')) deleteMutation.mutate(member.id); }}
                         className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl transition-colors"
                       >
                         <Trash2 size={16} />
@@ -142,13 +218,81 @@ export default function StaffPage() {
         </div>
       )}
 
-      {/* Staff Modal */}
-      <StaffModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        initialData={editingStaff} 
-      />
+        <StaffModal 
+          isOpen={isModalOpen} 
+          onClose={() => setIsModalOpen(false)} 
+          initialData={editingStaff} 
+        />
+
+        <ShiftLogsModal 
+           isOpen={isShiftLogsOpen} 
+           onClose={() => setIsShiftLogsOpen(false)} 
+           userId={shiftTargetId} 
+        />
     </div>
+  );
+}
+
+function ShiftLogsModal({ isOpen, onClose, userId }: { isOpen: boolean, onClose: () => void, userId: number | null }) {
+  const { data: shifts = [], isLoading } = useQuery({
+    queryKey: ['shifts', userId],
+    queryFn: async () => (await apiClient.get(`/shift/user/${userId}`)).data,
+    enabled: !!userId && isOpen
+  });
+
+  if (!isOpen) return null;
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+       <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} className="glass w-full max-w-4xl max-h-[80vh] overflow-hidden flex flex-col rounded-[2.5rem] border-white/5 shadow-2xl">
+          <div className="p-8 border-b border-white/5 flex items-center justify-between">
+             <div className="flex items-center gap-4">
+                <div className="p-3 bg-primary/20 rounded-2xl text-primary"><Clock size={20} /></div>
+                <div>
+                   <h2 className="text-xl font-black uppercase tracking-tight">Lịch sử chấm công</h2>
+                   <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Dữ liệu giờ vào / giờ ra của nhân sự</p>
+                </div>
+             </div>
+             <button onClick={onClose} className="p-3 hover:bg-white/10 rounded-full transition-colors"><X size={20} /></button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-8 pt-4 custom-scrollbar">
+             {isLoading ? (
+                <div className="flex items-center justify-center h-40"><Loader2 className="animate-spin text-primary" /></div>
+             ) : shifts.length === 0 ? (
+                <div className="text-center py-20 text-muted-foreground uppercase text-[10px] font-black tracking-widest">Chưa có dữ liệu ca làm việc</div>
+             ) : (
+                <table className="w-full text-left border-separate border-spacing-y-2">
+                   <thead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground sticky top-0 bg-[#0c0e14] z-10">
+                      <tr>
+                         <th className="pb-4 pl-4">Thời gian</th>
+                         <th className="pb-4">Giờ Vào</th>
+                         <th className="pb-4">Giờ Ra</th>
+                         <th className="pb-4">Thời lượng</th>
+                         <th className="pb-4 pr-4">Ghi chú</th>
+                      </tr>
+                   </thead>
+                   <tbody className="text-sm">
+                      {shifts.map((s: any) => {
+                         const start = new Date(s.startTime);
+                         const end = s.endTime ? new Date(s.endTime) : null;
+                         const duration = end ? Math.round((end.getTime() - start.getTime()) / 60000) : null;
+                         return (
+                            <tr key={s.id} className="bg-white/[0.02] hover:bg-white/5 transition-colors group">
+                               <td className="py-4 pl-4 rounded-l-2xl border-y border-l border-white/5 font-bold">{start.toLocaleDateString()}</td>
+                               <td className="py-4 border-y border-white/5 font-mono text-emerald-400">{start.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}</td>
+                               <td className="py-4 border-y border-white/5 font-mono text-orange-400">{end ? end.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}) : '---'}</td>
+                               <td className="py-4 border-y border-white/5 text-muted-foreground">{duration ? `${duration} phút` : <span className="text-emerald-400 animate-pulse">Đang trực</span>}</td>
+                               <td className="py-4 pr-4 rounded-r-2xl border-y border-r border-white/5 italic text-muted-foreground">{s.note || '---'}</td>
+                            </tr>
+                         );
+                      })}
+                   </tbody>
+                </table>
+             )}
+          </div>
+       </motion.div>
+    </motion.div>
   );
 }
 

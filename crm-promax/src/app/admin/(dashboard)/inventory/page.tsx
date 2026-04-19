@@ -4,12 +4,13 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Package, Plus, AlertTriangle, Search, Loader2,
-  TrendingDown, TrendingUp, Edit2, Trash2, CheckCircle2
+  TrendingDown, TrendingUp, Edit2, Trash2, CheckCircle2,
+  Download, Minus, Clock, RefreshCw
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 import { cn } from '@/lib/utils';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 
 interface InventoryItem {
   id: number;
@@ -180,6 +181,54 @@ export default function InventoryPage() {
     onError: (err: any) => toast.error(err.response?.data || "Không thể xóa nguyên liệu này.")
   });
 
+  // Quick Adjust Mutation
+  const adjustMutation = useMutation({
+    mutationFn: (data: { id: number, amount: number }) => 
+      apiClient.post(`/inventory/adjust/${data.id}?amount=${data.amount}`),
+    onSuccess: () => { 
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+    }
+  });
+
+  const handleExportCSV = () => {
+    if (items.length === 0) {
+      toast.error("Không có dữ liệu để xuất!");
+      return;
+    }
+
+    const tId = toast.loading("Đang nạp dữ liệu kho...");
+    
+    try {
+      const headers = ["ID", "Tên nguyên liệu", "Tồn kho", "Đơn vị", "Định mức tối thiểu", "Cập nhật cuối"];
+      const csvContent = [
+        headers.join(","),
+        ...items.map(i => [
+          i.id,
+          i.name,
+          i.stockQuantity,
+          i.unit,
+          i.minStockLevel,
+          new Date(i.lastUpdated).toLocaleString()
+        ].join(","))
+      ].join("\n");
+
+      const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `TON_KHO_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.success("Đã xuất báo cáo tồn kho!", { id: tId });
+    } catch (error) {
+       console.error("Export Error:", error);
+       toast.error("Lỗi khi xuất dữ liệu kho", { id: tId });
+    }
+  };
+
   const handleSave = async (data: any) => {
     if (data.id) {
       await updateMutation.mutateAsync(data);
@@ -225,6 +274,12 @@ export default function InventoryPage() {
               className="pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-2xl outline-none focus:border-orange-500/50 transition-colors focus:bg-white/10 w-[220px]"
             />
           </div>
+          <button 
+             onClick={handleExportCSV}
+             className="p-3 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 transition-all text-muted-foreground hover:text-white"
+          >
+             <Download size={18} />
+          </button>
           <motion.button
             onClick={openNew}
             whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
@@ -306,10 +361,17 @@ export default function InventoryPage() {
                           exit={{ opacity: 0, x: 10 }}
                           transition={{ delay: idx * 0.04 }}
                           className={cn(
-                            "border-b border-white/5 transition-colors group",
+                            "border-b border-white/5 transition-colors group relative",
                             isLow ? "hover:bg-red-500/5 bg-red-500/[0.02]" : "hover:bg-white/5"
                           )}
                         >
+                          {/* Severity Indicator Line */}
+                          {isLow && (
+                             <div className={cn(
+                                "absolute left-0 top-1/2 -translate-y-1/2 w-1 h-3/4 rounded-full",
+                                item.stockQuantity === 0 ? "bg-red-600 animate-pulse shadow-lg shadow-red-500" : "bg-red-500"
+                             )} />
+                          )}
                           {/* Name */}
                           <td className="py-4 px-6">
                             <div className="flex items-center gap-3">
@@ -327,10 +389,29 @@ export default function InventoryPage() {
 
                           {/* Stock qty */}
                           <td className="py-4 px-6">
-                            <div className={cn("text-2xl font-black font-mono", isLow ? "text-red-400" : "text-emerald-400")}>
-                              {item.stockQuantity}
+                            <div className="flex items-center gap-4">
+                               <div className="flex flex-col">
+                                  <div className={cn("text-2xl font-black font-mono leading-none", isLow ? "text-red-400" : "text-emerald-400")}>
+                                    {item.stockQuantity}
+                                  </div>
+                                  <div className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">{item.unit}</div>
+                               </div>
+                               
+                               <div className="flex bg-white/5 border border-white/10 rounded-xl p-1 gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button 
+                                     onClick={() => adjustMutation.mutate({ id: item.id, amount: -1 })}
+                                     className="p-1 hover:bg-red-500/20 hover:text-red-400 rounded-lg transition-colors"
+                                  >
+                                     <Minus size={14} />
+                                  </button>
+                                  <button 
+                                     onClick={() => adjustMutation.mutate({ id: item.id, amount: 1 })}
+                                     className="p-1 hover:bg-emerald-500/20 hover:text-emerald-400 rounded-lg transition-colors"
+                                  >
+                                     <Plus size={14} />
+                                  </button>
+                               </div>
                             </div>
-                            <div className="text-xs text-muted-foreground">{item.unit}</div>
                           </td>
 
                           {/* Progress bar */}

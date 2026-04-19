@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Lock, Mail, Shield, Save, Loader2, Camera, KeyRound, CheckCircle2 } from 'lucide-react';
+import { User, Lock, Mail, Shield, Save, Loader2, Camera, KeyRound, CheckCircle2, History, Award, Calendar, ExternalLink } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 import { toast } from 'sonner';
 
@@ -34,10 +34,12 @@ const passwordSchema = z.object({
 type PasswordFormValues = z.infer<typeof passwordSchema>;
 
 export default function ProfilePage() {
-  const [activeTab, setActiveTab] = useState<'general' | 'security'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'security' | 'activity'>('general');
   const [userData, setUserData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [activityLogs, setActivityLogs] = useState<any[]>([]);
+  const [isLoadingActivity, setIsLoadingActivity] = useState(false);
 
   const profileForm = useForm<ProfileFormValues>({ resolver: zodResolver(profileSchema) });
   const passwordForm = useForm<PasswordFormValues>({ resolver: zodResolver(passwordSchema) });
@@ -67,6 +69,24 @@ export default function ProfilePage() {
       setIsLoading(false);
     }
   };
+
+  const fetchActivity = async () => {
+    setIsLoadingActivity(true);
+    try {
+      const res = await apiClient.get('/users/my-activity');
+      setActivityLogs(res.data);
+    } catch (error) {
+      toast.error("Không thể tải nhật ký hoạt động.");
+    } finally {
+      setIsLoadingActivity(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'activity') {
+        fetchActivity();
+    }
+  }, [activeTab]);
 
   const onProfileSubmit = async (data: ProfileFormValues) => {
     try {
@@ -167,9 +187,17 @@ export default function ProfilePage() {
               </label>
             </div>
             <h2 className="text-xl font-bold text-white mb-1">{userData?.FullName}</h2>
-            <div className="px-3 py-1 bg-primary/10 border border-primary/20 rounded-full text-primary text-[10px] font-black uppercase tracking-widest mb-4">
-              {userData?.Role}
+            
+            {/* Branded Role Badge */}
+            <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest mb-4 border ${
+                userData?.Role === 'Admin' 
+                ? 'bg-amber-400/10 border-amber-400/20 text-amber-400' 
+                : 'bg-primary/10 border-primary/20 text-primary'
+            }`}>
+               {userData?.Role === 'Admin' ? <Award size={12} /> : <Shield size={12} />}
+               {userData?.Role}
             </div>
+
             <p className="text-xs text-muted-foreground mb-6">@{userData?.Username}</p>
             
             <div className="w-full space-y-2 pt-6 border-t border-white/5">
@@ -182,6 +210,10 @@ export default function ProfilePage() {
                 <div className="flex items-center justify-between text-xs p-2 rounded-xl hover:bg-white/5 transition-colors">
                     <span className="text-muted-foreground">Phòng ban</span>
                     <span className="text-white font-bold">{userData?.Department || 'N/A'}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs p-2 rounded-xl hover:bg-white/5 transition-colors">
+                    <span className="text-muted-foreground">Thành viên từ</span>
+                    <span className="text-white font-bold">{userData?.CreatedAt ? new Date(userData.CreatedAt).toLocaleDateString() : 'N/A'}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs p-2 rounded-xl hover:bg-white/5 transition-colors">
                     <span className="text-muted-foreground">Tình trạng</span>
@@ -201,7 +233,13 @@ export default function ProfilePage() {
               onClick={() => setActiveTab('security')}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm ${activeTab === 'security' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-muted-foreground hover:bg-white/5'}`}
             >
-              <Shield size={18} /> Bảo mật & Mật khẩu
+              <Lock size={18} /> Bảo mật & Mật khẩu
+            </button>
+            <button 
+              onClick={() => setActiveTab('activity')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm ${activeTab === 'activity' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-muted-foreground hover:bg-white/5'}`}
+            >
+              <History size={18} /> Nhật ký hoạt động
             </button>
           </div>
         </div>
@@ -324,7 +362,7 @@ export default function ProfilePage() {
                   </div>
                 </form>
               </motion.div>
-            ) : (
+            ) : activeTab === 'security' ? (
               <motion.div key="security" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="glass-card p-8 rounded-[2rem] h-full">
                 <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2 underline decoration-primary underline-offset-8">
                   <Lock size={20} className="text-primary" /> Thiết lập bảo mật
@@ -386,6 +424,56 @@ export default function ProfilePage() {
                   </div>
                 </form>
               </motion.div>
+            ) : (
+                <motion.div key="activity" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="glass-card p-8 rounded-[2rem] h-full">
+                    <div className="flex items-center justify-between mb-8">
+                        <h3 className="text-lg font-bold text-white flex items-center gap-2 underline decoration-primary underline-offset-8">
+                            <History size={20} className="text-primary" /> Nhật ký hoạt động cá nhân
+                        </h3>
+                        <button onClick={fetchActivity} className="p-2 text-muted-foreground hover:text-primary transition-colors">
+                            <Loader2 className={isLoadingActivity ? 'animate-spin' : ''} size={18} />
+                        </button>
+                    </div>
+
+                    {isLoadingActivity ? (
+                        <div className="h-64 flex flex-col items-center justify-center gap-3">
+                            <Loader2 className="animate-spin text-primary" size={32} />
+                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Đang truy xuất nhật ký...</p>
+                        </div>
+                    ) : activityLogs.length === 0 ? (
+                        <div className="h-64 flex flex-col items-center justify-center gap-3 text-muted-foreground opacity-30">
+                            <History size={48} />
+                            <p className="text-sm font-bold">Chưa có hoạt động nào được ghi lại.</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-6 relative before:absolute before:left-[17px] before:top-2 before:bottom-2 before:w-[2px] before:bg-white/5">
+                            {activityLogs.map((log) => (
+                                <div key={log.Id} className="relative pl-12 group">
+                                    <div className="absolute left-0 top-1 w-[36px] h-[36px] rounded-full bg-black/40 border border-white/10 flex items-center justify-center z-10 group-hover:border-primary/50 transition-colors">
+                                        <div className="w-2 h-2 rounded-full bg-primary" />
+                                    </div>
+                                    <div className="glass-card p-4 rounded-2xl group-hover:bg-white/5 transition-all">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-primary">{log.Module}</span>
+                                            <span className="text-[10px] font-bold text-muted-foreground">{new Date(log.CreatedAt).toLocaleString()}</span>
+                                        </div>
+                                        <h4 className="text-sm font-bold text-white mb-1 flex items-center gap-2">
+                                            {log.Action} 
+                                            <ExternalLink size={12} className="opacity-0 group-hover:opacity-30 transition-opacity" />
+                                        </h4>
+                                        <p className="text-xs text-muted-foreground leading-relaxed">{log.Description}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    <div className="mt-8 p-4 bg-primary/5 border border-primary/10 rounded-2xl">
+                        <p className="text-[10px] text-muted-foreground text-center uppercase font-bold tracking-widest italic leading-relaxed">
+                            Nhật ký hiển thị 10 hành động gần nhất của bạn để đảm bảo tính minh bạch và bảo mật tài khoản.
+                        </p>
+                    </div>
+                </motion.div>
             )}
           </AnimatePresence>
         </div>

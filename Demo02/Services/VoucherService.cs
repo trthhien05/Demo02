@@ -96,10 +96,45 @@ public class VoucherService : IVoucherService
         var customers = await query.ToListAsync();
         foreach (var customer in customers)
         {
-            await GenerateVoucherAsync(customer.Id, description, type, value, expiryDays);
+            // Sinh mã ngẫu nhiên: WELCOME_ABC123
+            var randomCode = Guid.NewGuid().ToString().Substring(0, 6).ToUpper();
+            var prefix = type == DiscountType.Percentage ? "PCT" : "FIX";
+            var finalCode = $"{prefix}_{randomCode}";
+
+            var voucher = new Voucher
+            {
+                CustomerId = customer.Id,
+                Code = finalCode,
+                Description = description,
+                DiscountType = type,
+                Value = value,
+                ExpiryDate = DateTime.UtcNow.AddDays(expiryDays),
+                IsUsed = false
+            };
+
+            _context.Vouchers.Add(voucher);
+
+            // Gửi qua hàng đợi Marketing
+            var discountText = type == DiscountType.Percentage ? $"{value}%" : $"{value:N0} VNĐ";
+            await _messageQueue.PutMessageAsync(new CampaignMessage
+            {
+                CustomerPhone = customer.PhoneNumber,
+                DefaultContent = $"Chúc mừng! Bạn nhận được Voucher '{finalCode}' giảm {discountText}. HSD: {voucher.ExpiryDate:dd/MM/yyyy}. {description}"
+            });
         }
 
+        await _context.SaveChangesAsync();
         return customers.Count;
+    }
+
+    public async Task<bool> RevokeVoucherAsync(int id)
+    {
+        var voucher = await _context.Vouchers.FindAsync(id);
+        if (voucher == null || voucher.IsUsed) return false;
+
+        _context.Vouchers.Remove(voucher);
+        await _context.SaveChangesAsync();
+        return true;
     }
 }
 

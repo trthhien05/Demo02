@@ -90,6 +90,16 @@ public class VoucherController : ControllerBase
             return BadRequest(ex.Message);
         }
     }
+
+    // DELETE: api/voucher/{id}
+    [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var success = await _voucherService.RevokeVoucherAsync(id);
+        if (!success) return BadRequest("Không thể thu hồi Voucher này (Voucher không tồn tại hoặc đã được sử dụng).");
+        return Ok(new { Message = "Đã thu hồi Voucher thành công." });
+    }
 }
 
 public class BulkGiveRequest

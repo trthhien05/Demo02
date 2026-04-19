@@ -37,7 +37,9 @@ public class UsersController : ControllerBase
                 u.Email,
                 u.PhoneNumber,
                 u.Department,
-                u.CreatedAt
+                u.CreatedAt,
+                u.IsActive,
+                IsClockedIn = _context.Shifts.Any(s => s.UserId == u.Id && s.EndTime == null)
             })
             .ToListAsync();
         return Ok(users);
@@ -94,6 +96,19 @@ public class UsersController : ControllerBase
 
         return Ok(new { Message = "Đổi mật khẩu thành công" });
     }
+    
+    [HttpGet("my-activity")]
+    public async Task<IActionResult> GetMyActivity()
+    {
+        var userId = int.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "0");
+        var logs = await _context.AuditLogs
+            .Where(l => l.UserId == userId)
+            .OrderByDescending(l => l.CreatedAt)
+            .Take(10)
+            .ToListAsync();
+            
+        return Ok(logs);
+    }
 
     [HttpPost]
     [Authorize(Roles = "Admin")]
@@ -131,6 +146,7 @@ public class UsersController : ControllerBase
         user.Email = request.Email;
         user.PhoneNumber = request.PhoneNumber;
         user.Department = request.Department;
+        user.IsActive = request.IsActive;
 
         if (!string.IsNullOrEmpty(request.Password))
         {
@@ -184,6 +200,7 @@ public class UpdateStaffRequest
     public string? Email { get; set; }
     public string? PhoneNumber { get; set; }
     public string? Department { get; set; }
+    public bool IsActive { get; set; } = true;
 }
 
 public class UpdateProfileRequest

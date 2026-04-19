@@ -24,7 +24,8 @@ const PAYMENT_METHODS = [
 
 export default function CheckoutModal({ isOpen, onClose, orderId, tableNumber }: CheckoutModalProps) {
   const queryClient = useQueryClient();
-  const [method, setMethod] = useState(0);
+  const [method, setMethod] = useState(0); // 0: Cash, 1: Card, 2: Transfer, 3: E-Wallet
+  const [amountReceived, setAmountReceived] = useState<string>('');
 
   // Auto-fetch invoice preview when opening the modal
   const { data: preview, isLoading: isPreviewLoading } = useQuery({
@@ -63,7 +64,7 @@ export default function CheckoutModal({ isOpen, onClose, orderId, tableNumber }:
     if (!preview) return;
     const payload = {
       orderId: preview.orderId,
-      customerId: null, // Hardcoded for now. Can integrate a customer selector later.
+      customerId: null,
       subtotal: preview.subtotal,
       vatAmount: preview.vatAmount,
       serviceChargeAmount: preview.serviceChargeAmount,
@@ -73,6 +74,8 @@ export default function CheckoutModal({ isOpen, onClose, orderId, tableNumber }:
     };
     checkoutMutation.mutate(payload);
   };
+
+  const changeDue = preview ? Math.max(0, (Number(amountReceived) || 0) - preview.finalAmount) : 0;
 
   if (!isOpen) return null;
 
@@ -117,28 +120,28 @@ export default function CheckoutModal({ isOpen, onClose, orderId, tableNumber }:
              ) : preview ? (
                 <>
                    {/* Bill Details */}
-                   <div className="space-y-3 bg-black/20 p-5 rounded-2xl border border-white/5 font-mono text-sm">
-                      <div className="flex justify-between items-center text-muted-foreground">
-                         <span>Subtotal</span>
-                         <span className="text-foreground">${preview.subtotal.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-muted-foreground">
-                         <span>VAT (8%)</span>
-                         <span className="text-foreground">${preview.vatAmount.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-muted-foreground">
-                         <span>Service Charge (5%)</span>
-                         <span className="text-foreground">${preview.serviceChargeAmount.toFixed(2)}</span>
-                      </div>
-                      <div className="pt-3 mt-3 border-t border-dashed border-white/20 flex justify-between items-center">
-                         <span className="font-bold text-base">Total Due</span>
-                         <span className="text-3xl font-black text-emerald-400 font-sans tracking-tight">${preview.finalAmount.toFixed(2)}</span>
-                      </div>
-                   </div>
+                    <div className="space-y-3 bg-black/20 p-5 rounded-2xl border border-white/5 font-mono text-sm leading-relaxed">
+                       <div className="flex justify-between items-center text-muted-foreground">
+                          <span>Tạm tính</span>
+                          <span className="text-foreground">{preview.subtotal.toLocaleString()} VNĐ</span>
+                       </div>
+                       <div className="flex justify-between items-center text-muted-foreground">
+                          <span>Thuế (VAT 8%)</span>
+                          <span className="text-foreground">{preview.vatAmount.toLocaleString()} VNĐ</span>
+                       </div>
+                       <div className="flex justify-between items-center text-muted-foreground">
+                          <span>Phí phục vụ (5%)</span>
+                          <span className="text-foreground">{preview.serviceChargeAmount.toLocaleString()} VNĐ</span>
+                       </div>
+                       <div className="pt-3 mt-3 border-t border-dashed border-white/20 flex justify-between items-center">
+                          <span className="font-bold text-base uppercase tracking-tighter">Tổng Cộng</span>
+                          <span className="text-3xl font-black text-emerald-400 font-sans tracking-tighter">{preview.finalAmount.toLocaleString()} <span className="text-xs not-italic font-bold ml-1 opacity-50 uppercase">vnđ</span></span>
+                       </div>
+                    </div>
 
-                   {/* Payment Method */}
-                   <div>
-                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 block">Payment Method</label>
+                    {/* Payment Method */}
+                    <div>
+                       <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 block">Phương thức thanh toán</label>
                       <div className="grid grid-cols-2 gap-3">
                          {PAYMENT_METHODS.map(m => (
                             <button
@@ -156,7 +159,36 @@ export default function CheckoutModal({ isOpen, onClose, orderId, tableNumber }:
                             </button>
                          ))}
                       </div>
-                   </div>
+
+                       {/* Cash Calculator (Only for Cash) */}
+                       <AnimatePresence>
+                          {method === 0 && (
+                             <motion.div 
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="mt-4 pt-4 border-t border-white/5 space-y-4 overflow-hidden"
+                             >
+                                <div className="space-y-2">
+                                   <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Tiền khách đưa (VNĐ)</label>
+                                   <input 
+                                      type="number"
+                                      value={amountReceived}
+                                      onChange={(e) => setAmountReceived(e.target.value)}
+                                      placeholder="0"
+                                      className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-lg font-black text-primary outline-none focus:border-primary/50 transition-all"
+                                   />
+                                </div>
+                                {Number(amountReceived) > 0 && (
+                                   <div className="flex items-center justify-between p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                                      <div className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Tiền thối lại</div>
+                                      <div className="text-xl font-black text-emerald-400 font-mono italic">{changeDue.toLocaleString()} đ</div>
+                                   </div>
+                                )}
+                             </motion.div>
+                          )}
+                       </AnimatePresence>
+                    </div>
 
                    {/* Actions */}
                    <div className="pt-2">
@@ -169,7 +201,7 @@ export default function CheckoutModal({ isOpen, onClose, orderId, tableNumber }:
                            {checkoutMutation.isPending ? (
                               <Loader2 className="animate-spin text-white" size={20} />
                            ) : (
-                              <><Receipt size={20} className="text-white" /><span className="font-bold text-white text-base">Confirm Payment</span></>
+                              <><Receipt size={20} className="text-white" /><span className="font-bold text-white text-base">XÁC NHẬN THANH TOÁN</span></>
                            )}
                         </div>
                      </button>
