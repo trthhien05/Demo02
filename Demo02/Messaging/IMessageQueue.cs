@@ -6,6 +6,7 @@ namespace ConnectDB.Messaging;
 public class CampaignMessage
 {
     public string CustomerPhone { get; set; } = string.Empty;
+    public string? CustomerEmail { get; set; }
     public string DefaultContent { get; set; } = string.Empty;
 }
 

@@ -9,9 +9,11 @@ import { cn } from '@/lib/utils';
 import CheckoutModal from '@/components/admin/orders/CheckoutModal';
 import OrderModal from '@/components/admin/orders/OrderModal';
 import OrderDetailModal from '@/components/admin/orders/OrderDetailModal';
+import InvoiceReprintModal from '@/components/admin/orders/InvoiceReprintModal';
 import { useOrderSignalR } from '@/lib/hooks/useOrderSignalR';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { Printer } from 'lucide-react';
 
 // Maps to .NET Enums
 type OrderStatus = 0 | 1 | 2 | 3 | 4; 
@@ -52,6 +54,7 @@ export default function OrdersPage() {
   const [search, setSearch] = useState('');
   const [checkoutTarget, setCheckoutTarget] = useState<{ id: number, tableNumber: string } | null>(null);
   const [selectedOrderDetails, setSelectedOrderDetails] = useState<Order | null>(null);
+  const [reprintOrderId, setReprintOrderId] = useState<number | null>(null);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<number | 'all'>('all');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -299,8 +302,6 @@ export default function OrdersPage() {
                              </button>
                           )}
                           {order.status === 3 && (
-                             <div className="w-full bg-white/5 text-muted-foreground font-black py-4 px-4 rounded-xl flex items-center justify-center gap-2 border border-white/5 uppercase text-[10px] tracking-widest">
-                                <CheckCircle2 size={16} className="text-emerald-500" /> Đã Thanh Toán
                              </div>
                           )}
                        </div>

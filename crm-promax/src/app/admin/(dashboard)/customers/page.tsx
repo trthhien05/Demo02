@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, Plus, Download, Search, Loader2, Crown,
   X, Gift, TrendingUp, ShoppingBag, Calendar,
-  Phone, Mail, Star, Minus, ChevronRight, Edit2
+  Phone, Mail, Star, Minus, ChevronRight, Edit2, Trash2
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
@@ -420,11 +420,33 @@ export default function CustomersPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data: customers = [], isLoading } = useQuery<Customer[]>({
     queryKey: ['customers'],
     queryFn: async () => (await apiClient.get('/customer')).data,
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => apiClient.delete(`/customer/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      toast.success("Đã xóa khách hàng thành công");
+    },
+    onError: (err: any) => {
+      const msg = err.response?.data || "Không thể xóa khách hàng này (có thể do lỗi dữ liệu hoặc lịch sử giao dịch)";
+      toast.error(msg);
+    }
+  });
+
+  const handleDelete = (id: number, name: string) => {
+    toast(`Xác nhận xóa khách hàng ${name}?`, {
+      action: {
+        label: "Xác nhận",
+        onClick: () => deleteMutation.mutate(id)
+      }
+    });
+  };
 
   const tierCounts = useMemo(() => ({
     3: customers.filter(c => c.tier === 3).length,
@@ -572,9 +594,23 @@ export default function CustomersPage() {
                             <span className="text-xs text-muted-foreground ml-1">pts</span>
                           </td>
                           <td className="py-4 px-6 text-right">
-                            <button className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 ml-auto text-xs text-primary font-bold hover:underline">
-                              Xem hồ sơ <ChevronRight size={14} />
-                            </button>
+                            <div className="flex items-center justify-end gap-2">
+                                <button 
+                                   onClick={(e) => { e.stopPropagation(); setEditingCustomer(c); setIsFormModalOpen(true); }}
+                                   className="p-2 hover:bg-white/10 rounded-xl text-primary transition-colors"
+                                >
+                                   <Edit2 size={16} />
+                                </button>
+                                <button 
+                                   onClick={(e) => { e.stopPropagation(); handleDelete(c.id, c.fullName || c.phoneNumber); }}
+                                   className="p-2 hover:bg-red-500/10 rounded-xl text-red-400 transition-colors"
+                                >
+                                   <Trash2 size={16} />
+                                </button>
+                                <button className="flex items-center gap-1.5 text-xs text-muted-foreground font-bold hover:text-white transition-colors">
+                                  <ChevronRight size={14} />
+                                </button>
+                            </div>
                           </td>
                         </motion.tr>
                       );

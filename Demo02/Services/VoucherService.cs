@@ -49,6 +49,7 @@ public class VoucherService : IVoucherService
         await _messageQueue.PutMessageAsync(new CampaignMessage
         {
             CustomerPhone = customer.PhoneNumber,
+            CustomerEmail = customer.Email,
             DefaultContent = $"Chúc mừng! Bạn nhận được Voucher '{finalCode}' giảm {discountText}. HSD: {voucher.ExpiryDate:dd/MM/yyyy}. {description}"
         });
 
@@ -119,6 +120,7 @@ public class VoucherService : IVoucherService
             await _messageQueue.PutMessageAsync(new CampaignMessage
             {
                 CustomerPhone = customer.PhoneNumber,
+                CustomerEmail = customer.Email,
                 DefaultContent = $"Chúc mừng! Bạn nhận được Voucher '{finalCode}' giảm {discountText}. HSD: {voucher.ExpiryDate:dd/MM/yyyy}. {description}"
             });
         }

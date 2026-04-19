@@ -104,4 +104,18 @@ public class BillingController : ControllerBase
             return StatusCode(500, $"Lỗi server khi thanh toán: {ex.Message}");
         }
     }
+
+    [HttpGet("invoice/{orderId}")]
+    public async Task<IActionResult> GetByOrderId(int orderId)
+    {
+        var invoice = await _context.Invoices
+            .Include(i => i.Order)
+            .Include(i => i.Customer)
+            .OrderByDescending(i => i.IssuedAt)
+            .FirstOrDefaultAsync(i => i.OrderId == orderId);
+
+        if (invoice == null) return NotFound("Không tìm thấy hóa đơn cho đơn hàng này");
+
+        return Ok(invoice);
+    }
 }
