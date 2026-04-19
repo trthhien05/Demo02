@@ -5,6 +5,7 @@ using ConnectDB.Messaging;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ConnectDB.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ConnectDB.BackgroundServices;
 
@@ -12,13 +13,16 @@ public class MarketingMessageWorker : BackgroundService
 {
     private readonly ILogger<MarketingMessageWorker> _logger;
     private readonly IMessageQueue _messageQueue;
-    private readonly IEmailService _emailService;
+    private readonly IServiceScopeFactory _scopeFactory;
 
-    public MarketingMessageWorker(ILogger<MarketingMessageWorker> logger, IMessageQueue messageQueue, IEmailService emailService)
+    public MarketingMessageWorker(
+        ILogger<MarketingMessageWorker> logger, 
+        IMessageQueue messageQueue, 
+        IServiceScopeFactory scopeFactory)
     {
         _logger = logger;
         _messageQueue = messageQueue;
-        _emailService = emailService;
+        _scopeFactory = scopeFactory;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -40,7 +44,10 @@ public class MarketingMessageWorker : BackgroundService
                 {
                     try 
                     {
-                        await _emailService.SendEmailAsync(
+                        using var scope = _scopeFactory.CreateScope();
+                        var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
+
+                        await emailService.SendEmailAsync(
                             message.CustomerEmail, 
                             "Quà tặng đặc biệt từ PROMAX RMS", 
                             $"<div style='font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;'>" +
