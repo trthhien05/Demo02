@@ -2,18 +2,21 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   async rewrites() {
+    const isProd = process.env.NODE_ENV === 'production';
+    const backendUrl = isProd ? 'https://demo02-backend.onrender.com' : 'http://localhost:5013';
+
     return [
       {
         source: '/api/:path*',
-        destination: 'http://localhost:5013/api/:path*',
+        destination: `${backendUrl}/api/:path*`,
       },
       {
         source: '/notificationHub',
-        destination: 'http://localhost:5013/notificationHub',
+        destination: `${backendUrl}/notificationHub`,
       },
       {
         source: '/notificationHub/:path*',
-        destination: 'http://localhost:5013/notificationHub/:path*',
+        destination: `${backendUrl}/notificationHub/:path*`,
       },
     ];
   },
