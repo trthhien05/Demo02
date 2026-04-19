@@ -302,7 +302,12 @@ export default function OrdersPage() {
                              </button>
                           )}
                           {order.status === 3 && (
-                             </div>
+                             <button 
+                                onClick={(e) => { e.stopPropagation(); setReprintOrderId(order.id); }}
+                                className="w-full bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 font-black py-4 px-4 rounded-xl flex items-center justify-center gap-2 transition-all text-[10px] tracking-widest uppercase border border-blue-500/20"
+                             >
+                                <Printer size={16} /> IN LẠI HÓA ĐƠN
+                             </button>
                           )}
                        </div>
                     </motion.div>
