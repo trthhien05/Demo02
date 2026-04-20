@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace ConnectDB.Models;
 
@@ -24,5 +25,6 @@ public class MenuItem
     public int CategoryId { get; set; }
 
     [ForeignKey("CategoryId")]
-    public MenuCategory Category { get; set; } = null!;
+    [JsonIgnore]
+    public MenuCategory? Category { get; set; }
 }
