@@ -35,13 +35,36 @@ public class ReservationController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> BookTable(Reservation reservation)
     {
-        // Chuẩn hóa ReservationTime sang UTC để tương thích PostgreSQL
+        // 1. Chuẩn hóa ReservationTime sang UTC để tương thích PostgreSQL
         reservation.ReservationTime = DateTime.SpecifyKind(reservation.ReservationTime, DateTimeKind.Utc);
 
-        // Kiểm tra logic tối thiểu: Phải đặt trước 30 phút
+        // 2. Kiểm tra logic tối thiểu: Phải đặt trước 30 phút
         if (reservation.ReservationTime < DateTime.UtcNow.AddMinutes(30))
         {
             return BadRequest("Phải đặt tối thiểu 30 phút trước giờ đến");
+        }
+
+        // 3. Kiểm tra bàn tồn tại & sức chứa
+        var table = await _context.DiningTables.FindAsync(reservation.DiningTableId);
+        if (table == null) return BadRequest("Bàn không tồn tại");
+        
+        if (table.Capacity < reservation.PaxCount)
+        {
+            return BadRequest($"Bàn số {table.TableNumber} chỉ có {table.Capacity} chỗ, không đủ cho nhóm {reservation.PaxCount} khách.");
+        }
+
+        // 4. Kiểm tra trùng lịch (Chặn 2 nhóm đặt cùng 1 bàn trong vòng 2 tiếng)
+        var startRange = reservation.ReservationTime.AddHours(-2);
+        var endRange = reservation.ReservationTime.AddHours(2);
+        var isConflict = await _context.Reservations.AnyAsync(r => 
+            r.DiningTableId == reservation.DiningTableId && 
+            r.Status != ReservationStatus.Cancelled &&
+            r.ReservationTime > startRange && 
+            r.ReservationTime < endRange);
+        
+        if (isConflict)
+        {
+            return BadRequest("Bàn này đã có lịch đặt trong khoảng thời gian này (trước/sau 2 tiếng). Vui lòng chọn bàn hoặc khung giờ khác.");
         }
 
         var customerExists = await _context.Customers.AnyAsync(c => c.Id == reservation.CustomerId);
@@ -54,7 +77,7 @@ public class ReservationController : ControllerBase
         await _context.SaveChangesAsync();
 
         // Gửi thông báo SignalR
-        await _hubContext.Clients.All.SendAsync("ReceiveNotification", "Hệ thống", $"Đã có khách mới đặt bàn: {reservation.PaxCount} người vào {reservation.ReservationTime}.");
+        await _hubContext.Clients.All.SendAsync("ReceiveNotification", "Hệ thống", $"Khách mới đặt bàn {table.TableNumber}: {reservation.PaxCount} khách lúc {reservation.ReservationTime:HH:mm}.");
 
         return CreatedAtAction(nameof(GetReservations), new { id = reservation.Id }, reservation);
     }
@@ -72,6 +95,13 @@ public class ReservationController : ControllerBase
 
         // 1. Cập nhật trạng thái Seated
         reservation.Status = ReservationStatus.Seated;
+
+        // Cập nhật trạng thái bàn vật lý sang Occupied
+        var table = await _context.DiningTables.FindAsync(reservation.DiningTableId);
+        if (table != null)
+        {
+            table.Status = TableStatus.Occupied;
+        }
 
         // 2. Cập nhật LastVisit của khách
         if (reservation.Customer != null)

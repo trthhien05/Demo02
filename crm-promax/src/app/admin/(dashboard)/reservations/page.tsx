@@ -27,11 +27,14 @@ interface DiningTable {
 interface Reservation {
   id: number;
   customerId: number;
+  diningTableId: number;
   reservationTime: string;
   paxCount: number;
   status: number; // 0=Pending 1=Confirmed 2=Seated 3=Completed 4=Cancelled 5=NoShow
   specialRequests: string | null;
+  source: string;
   customer: { fullName: string; phoneNumber: string };
+  diningTable?: { tableNumber: string };
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -348,8 +351,12 @@ export default function ReservationsPage() {
                         <div className="text-xs font-black leading-tight">{resTime.getHours().toString().padStart(2, '0')}:{resTime.getMinutes().toString().padStart(2, '0')}</div>
                       </div>
                       <div>
-                        <div className="font-bold text-lg">{r.customer?.fullName || 'Ẩn danh'}</div>
+                        <div className="flex items-center gap-2">
+                           <div className="font-bold text-lg">{r.customer?.fullName || 'Ẩn danh'}</div>
+                           <span className="px-2 py-0.5 bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded text-[9px] font-bold uppercase tracking-widest">{r.source}</span>
+                        </div>
                         <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-3">
+                          <span className="flex items-center gap-1 text-violet-400 font-bold"><LayoutGrid size={11} /> Bàn {r.diningTable?.tableNumber || '?'}</span>
                           <span className="flex items-center gap-1"><Users size={11} /> {r.paxCount} người</span>
                           <span>{r.customer?.phoneNumber}</span>
                         </div>

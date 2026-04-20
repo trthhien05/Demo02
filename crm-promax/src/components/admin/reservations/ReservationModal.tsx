@@ -25,7 +25,7 @@ interface Customer {
 
 export default function ReservationModal({ isOpen, onClose }: ReservationModalProps) {
   const queryClient = useQueryClient();
-  const [activeStep, setActiveStep] = useState<'customer' | 'details'>('customer');
+  const [activeStep, setActiveStep] = useState<'customer' | 'details' | 'table'>('customer');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   
@@ -34,6 +34,8 @@ export default function ReservationModal({ isOpen, onClose }: ReservationModalPr
   const [time, setTime] = useState('19:00');
   const [paxCount, setPaxCount] = useState(2);
   const [specialRequests, setSpecialRequests] = useState('');
+  const [source, setSource] = useState('Call');
+  const [selectedTable, setSelectedTable] = useState<any | null>(null);
 
   // Fetch Customers
   const { data: customers = [], isLoading: customersLoading } = useQuery<Customer[]>({
@@ -42,12 +44,20 @@ export default function ReservationModal({ isOpen, onClose }: ReservationModalPr
     enabled: isOpen
   });
 
+  // Fetch Tables for selection
+  const { data: tables = [], isLoading: tablesLoading } = useQuery<any[]>({
+    queryKey: ['tables'],
+    queryFn: async () => (await apiClient.get('/table')).data,
+    enabled: activeStep === 'table'
+  });
+
   const createReservationMutation = useMutation({
     mutationFn: (payload: any) => apiClient.post('/reservation', payload),
     onSuccess: () => {
        queryClient.invalidateQueries({ queryKey: ['reservations'] });
+       queryClient.invalidateQueries({ queryKey: ['tables'] });
        toast.success("Đặt bàn thành công!", {
-          description: `Khách ${selectedCustomer?.fullName} đã được ghi nhận.`
+          description: `Khách ${selectedCustomer?.fullName} đã được ghi nhận tại bàn ${selectedTable?.tableNumber}.`
        });
        handleClose();
     },
@@ -76,9 +86,15 @@ export default function ReservationModal({ isOpen, onClose }: ReservationModalPr
     ).slice(0, 10);
   }, [customers, searchQuery]);
 
+  // Filter tables by capacity
+  const availableTables = useMemo(() => {
+    return tables.filter(t => t.capacity >= paxCount);
+  }, [tables, paxCount]);
+
   const handleClose = () => {
     setActiveStep('customer');
     setSelectedCustomer(null);
+    setSelectedTable(null);
     setSearchQuery('');
     setSpecialRequests('');
     setPaxCount(2);
@@ -86,16 +102,18 @@ export default function ReservationModal({ isOpen, onClose }: ReservationModalPr
   };
 
   const handleSubmit = () => {
-    if (!selectedCustomer) return;
+    if (!selectedCustomer || !selectedTable) return;
     
     // Combine date and time (Local to UTC or just keep string format for backend)
     const reservationTime = `${date}T${time}:00`;
 
     const payload = {
        customerId: selectedCustomer.id,
+       diningTableId: selectedTable.id,
        reservationTime: reservationTime,
        paxCount: paxCount,
        specialRequests: specialRequests,
+       source: source,
        status: 0 // Pending
     };
 
@@ -197,7 +215,7 @@ export default function ReservationModal({ isOpen, onClose }: ReservationModalPr
                       Tiếp tục <Plus size={16} />
                    </button>
                 </div>
-             ) : (
+             ) : activeStep === 'details' ? (
                 /* STEP 2: RESERVATION DETAILS */
                 <div className="space-y-6">
                    <div className="p-4 bg-violet-500/10 border border-violet-500/20 rounded-2xl flex items-center gap-3">
@@ -206,7 +224,7 @@ export default function ReservationModal({ isOpen, onClose }: ReservationModalPr
                       </div>
                       <div>
                          <div className="text-xs text-violet-400 font-bold uppercase tracking-wider">Khách hàng</div>
-                         <div className="font-bold">{selectedCustomer?.fullName} - {selectedCustomer?.phoneNumber}</div>
+                         <div className="font-bold">{selectedCustomer?.fullName}</div>
                       </div>
                       <button onClick={() => setActiveStep('customer')} className="ml-auto text-[10px] font-black uppercase text-muted-foreground hover:text-white underline">Thay đổi</button>
                    </div>
@@ -238,18 +256,28 @@ export default function ReservationModal({ isOpen, onClose }: ReservationModalPr
                       </div>
                    </div>
 
-                   <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Số người (Pax)</label>
-                      <div className="flex items-center gap-4 bg-white/5 border border-white/10 rounded-xl p-2">
-                         <button 
-                            onClick={() => setPaxCount(Math.max(1, paxCount - 1))}
-                            className="w-10 h-10 rounded-lg hover:bg-white/10 flex items-center justify-center text-xl"
-                         >−</button>
-                         <div className="flex-1 text-center font-black text-lg">{paxCount}</div>
-                         <button 
-                            onClick={() => setPaxCount(paxCount + 1)}
-                            className="w-10 h-10 rounded-lg hover:bg-white/10 flex items-center justify-center text-xl"
-                         >+</button>
+                   <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                         <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Số khách (Pax)</label>
+                         <div className="flex items-center gap-4 bg-white/5 border border-white/10 rounded-xl p-2">
+                            <button onClick={() => setPaxCount(Math.max(1, paxCount - 1))} className="w-8 h-8 rounded-lg hover:bg-white/10 flex items-center justify-center">−</button>
+                            <div className="flex-1 text-center font-bold">{paxCount}</div>
+                            <button onClick={() => setPaxCount(paxCount + 1)} className="w-8 h-8 rounded-lg hover:bg-white/10 flex items-center justify-center">+</button>
+                         </div>
+                      </div>
+                      <div className="space-y-2">
+                         <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Kênh đặt</label>
+                         <select 
+                            value={source}
+                            onChange={e => setSource(e.target.value)}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 outline-none focus:border-violet-500/50 transition-all text-sm appearance-none"
+                         >
+                            <option value="Call" className="bg-[#0c0e12]">Gọi điện</option>
+                            <option value="Website" className="bg-[#0c0e12]">Website</option>
+                            <option value="App" className="bg-[#0c0e12]">Ứng dụng</option>
+                            <option value="Zalo" className="bg-[#0c0e12]">Zalo OA</option>
+                            <option value="WalkIn" className="bg-[#0c0e12]">Đến trực tiếp</option>
+                         </select>
                       </div>
                    </div>
 
@@ -260,15 +288,66 @@ export default function ReservationModal({ isOpen, onClose }: ReservationModalPr
                       <textarea 
                          value={specialRequests}
                          onChange={e => setSpecialRequests(e.target.value)}
-                         placeholder="Yêu cầu đặc biệt (Ví dụ: Ngồi gần cửa sổ...)"
-                         className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-violet-500/50 transition-all h-24 resize-none"
+                         placeholder="Yêu cầu đặc biệt..."
+                         className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-violet-500/50 transition-all h-20 resize-none"
                       />
                    </div>
 
                    <button
+                      onClick={() => setActiveStep('table')}
+                      className="w-full py-4 bg-violet-500 text-white rounded-[1.2rem] font-black uppercase tracking-widest text-xs hover:bg-violet-400 transition-all flex items-center justify-center gap-2"
+                   >
+                      Tiếp tục chọn bàn <LayoutGrid size={16} />
+                   </button>
+                </div>
+             ) : (
+                /* STEP 3: SELECT TABLE */
+                <div className="space-y-6">
+                   <div className="flex items-center justify-between">
+                      <div>
+                         <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Khung giờ</div>
+                         <div className="font-bold text-violet-400">{date} - {time}</div>
+                      </div>
+                      <button onClick={() => setActiveStep('details')} className="text-[10px] font-black uppercase text-muted-foreground hover:text-white underline">Quay lại</button>
+                   </div>
+
+                   <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Chọn bàn phù hợp ({paxCount} khách)</label>
+                      <div className="grid grid-cols-3 gap-2 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
+                         {tablesLoading ? (
+                            <div className="col-span-3 py-10 opacity-30 text-center flex flex-col items-center">
+                               <Loader2 className="animate-spin mb-2" />
+                               <span className="text-xs italic">Đang tìm bàn trống...</span>
+                            </div>
+                         ) : availableTables.length > 0 ? (
+                            availableTables.map(t => (
+                               <button
+                                  key={t.id}
+                                  onClick={() => setSelectedTable(t)}
+                                  className={cn(
+                                     "p-3 rounded-xl border text-center transition-all",
+                                     selectedTable?.id === t.id 
+                                        ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400" 
+                                        : "bg-white/5 border-white/5 hover:bg-white/10"
+                                  )}
+                               >
+                                  <div className="text-lg font-black">{t.tableNumber}</div>
+                                  <div className="text-[9px] uppercase tracking-tighter opacity-50">{t.capacity} chỗ</div>
+                               </button>
+                            ))
+                         ) : (
+                            <div className="col-span-3 py-10 opacity-30 text-center">
+                               <X size={30} className="mx-auto mb-2" />
+                               <p className="text-[10px] font-bold uppercase">Hết bàn phù hợp</p>
+                            </div>
+                         )}
+                      </div>
+                   </div>
+
+                   <button
                       onClick={handleSubmit}
-                      disabled={createReservationMutation.isPending}
-                      className="w-full py-5 bg-violet-500 text-white rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-xs hover:bg-violet-400 transition-all shadow-xl shadow-violet-500/20 flex items-center justify-center gap-3"
+                      disabled={createReservationMutation.isPending || !selectedTable}
+                      className="w-full py-5 bg-emerald-600 text-white rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-xs hover:bg-emerald-500 transition-all shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-3"
                    >
                       {createReservationMutation.isPending ? <Loader2 className="animate-spin" /> : "XÁC NHẬN ĐẶT BÀN"}
                    </button>

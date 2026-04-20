@@ -18,6 +18,13 @@ public class Reservation
     public Customer? Customer { get; set; }
 
     [Required]
+    public int DiningTableId { get; set; }
+
+    [ForeignKey("DiningTableId")]
+    [JsonIgnore]
+    public DiningTable? DiningTable { get; set; }
+
+    [Required]
     public DateTime ReservationTime { get; set; }
 
     [Required]
@@ -27,6 +34,11 @@ public class Reservation
 
     [MaxLength(500)]
     public string? SpecialRequests { get; set; }
+
+    [MaxLength(50)]
+    public string Source { get; set; } = "Manual"; // Manual, Phone, Website, App
+
+    public bool ReminderSent { get; set; } = false;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
