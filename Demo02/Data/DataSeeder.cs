@@ -13,6 +13,9 @@ public static class DataSeeder
         using var scope = serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
+        // 0. Auto-Healing: Đảm bảo các cột quan trọng tồn tại bằng Raw SQL (Phòng trường hợp Migration bị kẹt trên Render)
+        EnsureProfessionalReservationColumns(context);
+
         try
         {
             SeedUsers(context);
@@ -31,6 +34,54 @@ public static class DataSeeder
         {
             Console.WriteLine($"[SEEDER] An error occurred during seeding or migration: {ex.Message}");
             // Không văng lỗi (crash) để ứng dụng vẫn có thể khởi động
+        }
+    }
+
+    private static void EnsureProfessionalReservationColumns(AppDbContext context)
+    {
+        try
+        {
+            Console.WriteLine("[DB HEALING] Checking database schema integrity for Reservations...");
+
+            // Danh sách các cột cần đảm bảo tồn tại
+            var columnsToAdd = new Dictionary<string, string>
+            {
+                { "DiningTableId", "INTEGER NOT NULL DEFAULT 0" },
+                { "ReminderSent", "BOOLEAN NOT NULL DEFAULT FALSE" },
+                { "Source", "VARCHAR(50) NOT NULL DEFAULT 'Manual'" },
+                { "CreatedAt", "TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+            };
+
+            foreach (var col in columnsToAdd)
+            {
+                // Kiểm tra sự tồn tại của cột trong PostgreSQL
+                var checkSql = $@"
+                    SELECT COUNT(*) 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'Reservations' AND column_name = '{col.Key}'";
+
+                // Lưu ý: Trong PostgreSQL, EF Core thường tạo tên bảng có viết hoa/thường, 
+                // nhưng Npgsql/Postgres lưu trữ lowercase mặc định trừ khi để trong dấu ""
+                // Chúng ta sẽ thử cả 2 trường hợp hoặc dùng query chuẩn nhất
+                
+                // Thực hiện Alter Table trực tiếp nếu cần
+                var addColSql = $@"
+                    DO $$ 
+                    BEGIN 
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Reservations' AND column_name = '{col.Key.ToLower()}') 
+                        AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Reservations' AND column_name = '{col.Key}') THEN
+                            ALTER TABLE ""Reservations"" ADD COLUMN ""{col.Key}"" {col.Value};
+                        END IF;
+                    END $$;";
+
+                context.Database.ExecuteSqlRaw(addColSql);
+            }
+
+            Console.WriteLine("[DB HEALING] Schema integrity check completed successfully.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[DB HEALING] Warning: Could not perform auto-healing: {ex.Message}");
         }
     }
 
