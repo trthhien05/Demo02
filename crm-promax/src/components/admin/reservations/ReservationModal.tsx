@@ -52,8 +52,18 @@ export default function ReservationModal({ isOpen, onClose }: ReservationModalPr
        handleClose();
     },
     onError: (err: any) => {
+       const errorData = err.response?.data;
+       let errorMessage = "Vui lòng kiểm tra lại thời gian (tối thiểu 30 phút trước giờ đến).";
+       
+       if (typeof errorData === 'string') {
+         errorMessage = errorData;
+       } else if (errorData && typeof errorData === 'object') {
+         // Nếu là ProblemDetails của .NET, ưu tiên lấy title hoặc chi tiết lỗi
+         errorMessage = errorData.title || errorData.message || "Dữ liệu gửi lên không đúng định dạng.";
+       }
+
        toast.error("Lỗi khi đặt bàn", {
-          description: err.response?.data || "Vui lòng kiểm tra lại thời gian (tối thiểu 30 phút trước giờ đến)."
+          description: errorMessage
        });
     }
   });

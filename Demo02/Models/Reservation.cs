@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace ConnectDB.Models;
 
@@ -13,7 +14,8 @@ public class Reservation
     public int CustomerId { get; set; }
 
     [ForeignKey("CustomerId")]
-    public Customer Customer { get; set; } = null!;
+    [JsonIgnore]
+    public Customer? Customer { get; set; }
 
     [Required]
     public DateTime ReservationTime { get; set; }

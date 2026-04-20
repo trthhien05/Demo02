@@ -6,8 +6,12 @@ export const useSignalR = () => {
 
     useEffect(() => {
         // notificationHub request will be proxied via next.config.ts to Render backend
-        const url = '/notificationHub';
-        
+        // Or we use absolute URL if NEXT_PUBLIC_API_URL is set
+        const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
+        const url = apiBase.endsWith('/api') 
+            ? apiBase.replace('/api', '/notificationHub') 
+            : (apiBase ? `${apiBase}/notificationHub` : '/notificationHub');
+
         const newConnection = new signalR.HubConnectionBuilder()
             .withUrl(url)
             .withAutomaticReconnect()
