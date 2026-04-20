@@ -95,20 +95,26 @@ export default function OrderDetailModal({ isOpen, onClose, order }: OrderDetail
                    <ShoppingBag size={12} /> Danh sách món ăn
                 </h3>
                 <div className="space-y-3">
-                   {order.orderItems?.map((item: any, idx: number) => (
-                      <div key={idx} className="p-4 bg-white/5 border border-white/5 rounded-2xl flex items-center gap-4">
-                         <div className="w-10 h-10 rounded-xl bg-black/40 flex items-center justify-center text-primary font-black border border-white/5">
-                            {item.quantity}
+                   {order.orderItems && order.orderItems.length > 0 ? (
+                      order.orderItems.map((item: any, idx: number) => (
+                         <div key={idx} className="p-4 bg-white/5 border border-white/5 rounded-2xl flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-xl bg-black/40 flex items-center justify-center text-primary font-black border border-white/5">
+                               {item.quantity}
+                            </div>
+                            <div className="flex-1">
+                               <div className="font-bold text-sm tracking-tight">{item.menuItem?.name || 'Món ăn'}</div>
+                               <div className="text-[10px] text-muted-foreground uppercase tracking-widest italic">{item.unitPrice.toLocaleString()}đ / món</div>
+                            </div>
+                            <div className="font-mono font-black text-sm text-foreground">
+                               {(item.unitPrice * item.quantity).toLocaleString()}đ
+                            </div>
                          </div>
-                         <div className="flex-1">
-                            <div className="font-bold text-sm tracking-tight">{item.menuItem?.name || 'Món ăn'}</div>
-                            <div className="text-[10px] text-muted-foreground uppercase tracking-widest italic">{item.unitPrice.toLocaleString()}đ / món</div>
-                         </div>
-                         <div className="font-mono font-black text-sm text-foreground">
-                            {(item.unitPrice * item.quantity).toLocaleString()}đ
-                         </div>
+                      ))
+                   ) : (
+                      <div className="p-8 border border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center text-center">
+                         <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Không có món ăn nào trong đơn hàng này</p>
                       </div>
-                   ))}
+                   )}
                 </div>
              </div>
 

@@ -136,6 +136,7 @@ public static class DataSeeder
         var random = new Random();
         var customers = context.Customers.ToList();
         var tables = context.DiningTables.ToList();
+        var menuItems = context.MenuItems.ToList();
 
         // Seed Orders and Invoices for the last 30 days
         for (int i = 30; i >= 0; i--)
@@ -147,14 +148,30 @@ public static class DataSeeder
             {
                 var customer = customers[random.Next(customers.Count)];
                 var table = tables[random.Next(tables.Count)];
-                var amount = (decimal)random.Next(500000, 5000000);
+                
+                // Tạo 1-4 món ăn ngẫu nhiên cho mỗi đơn hàng
+                var itemsCount = random.Next(1, 5);
+                var orderItems = new List<OrderItem>();
+                decimal total = 0;
+                for (int j = 0; j < itemsCount; j++)
+                {
+                    var mi = menuItems[random.Next(menuItems.Count)];
+                    var qty = random.Next(1, 3);
+                    orderItems.Add(new OrderItem { 
+                        MenuItemId = mi.Id, 
+                        Quantity = qty, 
+                        UnitPrice = mi.Price 
+                    });
+                    total += mi.Price * qty;
+                }
 
                 var order = new Order
                 {
                     DiningTableId = table.Id,
                     Status = OrderStatus.Completed,
-                    TotalAmount = amount,
-                    CreatedAt = date.AddHours(random.Next(11, 22))
+                    TotalAmount = total,
+                    CreatedAt = date.AddHours(random.Next(11, 22)),
+                    OrderItems = orderItems
                 };
                 context.Orders.Add(order);
                 context.SaveChanges();
@@ -163,9 +180,9 @@ public static class DataSeeder
                 {
                     OrderId = order.Id,
                     CustomerId = customer.Id,
-                    Subtotal = amount * 0.92m,
-                    VatAmount = amount * 0.08m,
-                    FinalAmount = amount,
+                    Subtotal = total * 0.92m,
+                    VatAmount = total * 0.08m,
+                    FinalAmount = total,
                     IssuedAt = order.CreatedAt,
                     Status = InvoiceStatus.Paid,
                     PaymentMethod = (PaymentMethod)random.Next(0, 4)

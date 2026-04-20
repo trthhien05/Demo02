@@ -97,7 +97,11 @@ public class OrderController : ControllerBase
     [HttpPatch("{id}/status")]
     public async Task<IActionResult> UpdateStatus(int id, [FromBody] OrderStatus status)
     {
-        var order = await _context.Orders.Include(o => o.DiningTable).FirstOrDefaultAsync(o => o.Id == id);
+        var order = await _context.Orders
+            .Include(o => o.DiningTable)
+            .Include(o => o.OrderItems)
+                .ThenInclude(oi => oi.MenuItem)
+            .FirstOrDefaultAsync(o => o.Id == id);
         if (order == null) return NotFound();
 
         order.Status = status;
