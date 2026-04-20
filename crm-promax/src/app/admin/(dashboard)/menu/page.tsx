@@ -85,8 +85,8 @@ export default function MenuPage() {
 
   // Toggle Availability Mutation
   const toggleMutation = useMutation({
-    mutationFn: (data: { id: number, isAvailable: boolean }) => 
-      apiClient.put(`/menu/item/${data.id}`, { ...data, isAvailable: !data.isAvailable }),
+    mutationFn: (item: MenuItem) => 
+      apiClient.put(`/menu/item/${item.id}`, { ...item, isAvailable: !item.isAvailable }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['menu'] });
       toast.success('Đã cập nhật trạng thái món ăn');
@@ -272,7 +272,7 @@ export default function MenuPage() {
                           <button 
                              onClick={(e) => {
                                 e.stopPropagation();
-                                toggleMutation.mutate({ id: item.id, isAvailable: item.isAvailable });
+                                toggleMutation.mutate(item);
                              }}
                              className={cn(
                                 "w-10 h-5 rounded-full transition-all relative overflow-hidden",

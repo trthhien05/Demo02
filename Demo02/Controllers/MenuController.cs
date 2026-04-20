@@ -51,9 +51,19 @@ public class MenuController : ControllerBase
     [HttpPut("item/{id}")]
     public async Task<IActionResult> UpdateMenuItem(int id, MenuItem item)
     {
-        if (id != item.Id) return BadRequest();
-        
-        _context.Entry(item).State = EntityState.Modified;
+        if (id != item.Id) return BadRequest("ID không khớp");
+
+        var existingItem = await _context.MenuItems.FindAsync(id);
+        if (existingItem == null) return NotFound("Món ăn không tồn tại");
+
+        // Cập nhật các trường thông tin
+        existingItem.Name = item.Name;
+        existingItem.Description = item.Description;
+        existingItem.Price = item.Price;
+        existingItem.ImageUrl = item.ImageUrl;
+        existingItem.IsAvailable = item.IsAvailable;
+        existingItem.CategoryId = item.CategoryId;
+
         await _context.SaveChangesAsync();
         return NoContent();
     }
