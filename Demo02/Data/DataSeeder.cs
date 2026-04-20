@@ -13,35 +13,51 @@ public static class DataSeeder
         using var scope = serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        SeedUsers(context);
-        SeedTables(context);
-        SeedMenu(context);
-        SeedCustomers(context);
-        SeedInventory(context);
-        SeedHistory(context); // Orders & Invoices
-        SeedReservations(context);
-        SeedVouchers(context);
+        try
+        {
+            SeedUsers(context);
+            SeedTables(context);
+            SeedMenu(context);
+            SeedCustomers(context);
+            SeedInventory(context);
+            SeedHistory(context); // Orders & Invoices
+            SeedReservations(context);
+            SeedVouchers(context);
 
-        // Nâng cấp dữ liệu cũ (Legacy Migration)
-        FixOrphanReservations(context);
+            // Nâng cấp dữ liệu cũ (Legacy Migration)
+            FixOrphanReservations(context);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[SEEDER] An error occurred during seeding or migration: {ex.Message}");
+            // Không văng lỗi (crash) để ứng dụng vẫn có thể khởi động
+        }
     }
 
     private static void FixOrphanReservations(AppDbContext context)
     {
-        // Tìm các đặt bàn cũ chưa có liên kết bàn (mặc định ban đầu là 0)
-        var orphans = context.Reservations.Where(r => r.DiningTableId == 0).ToList();
-        if (!orphans.Any()) return;
-
-        // Tìm bàn đầu tiên làm "cứu cánh"
-        var firstTable = context.DiningTables.OrderBy(t => t.Id).FirstOrDefault();
-        if (firstTable == null) return;
-
-        foreach (var r in orphans)
+        try
         {
-            r.DiningTableId = firstTable.Id;
-        }
+            // Tìm các đặt bàn cũ chưa có liên kết bàn (mặc định ban đầu là 0)
+            var orphans = context.Reservations.Where(r => r.DiningTableId == 0).ToList();
+            if (!orphans.Any()) return;
 
-        context.SaveChanges();
+            // Tìm bàn đầu tiên làm "cứu cánh"
+            var firstTable = context.DiningTables.OrderBy(t => t.Id).FirstOrDefault();
+            if (firstTable == null) return;
+
+            foreach (var r in orphans)
+            {
+                r.DiningTableId = firstTable.Id;
+            }
+
+            context.SaveChanges();
+            Console.WriteLine($"[DATA MIGRATION] Updated {orphans.Count} legacy reservations.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[DATA MIGRATION] Skipping migration due to error: {ex.Message}");
+        }
     }
 
     private static void SeedUsers(AppDbContext context)
