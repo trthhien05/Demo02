@@ -48,6 +48,7 @@ public class LoyaltyService : ILoyaltyService
         _context.LoyaltyTransactions.Add(transaction);
         
         customer.Points += pointsEarned;
+        customer.LastVisit = DateTime.UtcNow;
         _context.Customers.Update(customer);
         
         await _context.SaveChangesAsync();

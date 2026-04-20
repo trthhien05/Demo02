@@ -146,9 +146,8 @@ public class CustomerController : ControllerBase
             .Where(i => i.CustomerId == id && i.Status == InvoiceStatus.Paid)
             .SumAsync(i => i.FinalAmount);
 
-        var visitCount = await _context.Reservations
-            .Where(r => r.CustomerId == id && r.Status == ReservationStatus.Seated || r.Status == ReservationStatus.Completed)
-            .CountAsync();
+        var visitCount = await _context.Invoices
+            .CountAsync(i => i.CustomerId == id && i.Status == InvoiceStatus.Paid);
 
         return Ok(new {
             TotalSpent = totalSpent,
