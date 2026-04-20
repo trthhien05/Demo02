@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace ConnectDB.Models;
 
@@ -37,6 +38,8 @@ public class Customer
     public string? Segment { get; set; } // Ví dụ: "New", "Loyal", "AtRisk"
 
     // Navigation property
+    [JsonIgnore]
     public ICollection<Reservation> Reservations { get; set; } = new List<Reservation>();
+    
     public ICollection<Voucher> Vouchers { get; set; } = new List<Voucher>();
 }

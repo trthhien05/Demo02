@@ -14,14 +14,12 @@ public class Reservation
     public int CustomerId { get; set; }
 
     [ForeignKey("CustomerId")]
-    [JsonIgnore]
     public Customer? Customer { get; set; }
 
     [Required]
     public int DiningTableId { get; set; }
 
     [ForeignKey("DiningTableId")]
-    [JsonIgnore]
     public DiningTable? DiningTable { get; set; }
 
     [Required]
