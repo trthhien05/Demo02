@@ -35,6 +35,9 @@ public class ReservationController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> BookTable(Reservation reservation)
     {
+        // Chuẩn hóa ReservationTime sang UTC để tương thích PostgreSQL
+        reservation.ReservationTime = DateTime.SpecifyKind(reservation.ReservationTime, DateTimeKind.Utc);
+
         // Kiểm tra logic tối thiểu: Phải đặt trước 30 phút
         if (reservation.ReservationTime < DateTime.UtcNow.AddMinutes(30))
         {
