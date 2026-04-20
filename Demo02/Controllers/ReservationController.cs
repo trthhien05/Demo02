@@ -28,7 +28,12 @@ public class ReservationController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetReservations()
     {
-        var reservations = await _context.Reservations.Include(r => r.Customer).ToListAsync();
+        var reservations = await _context.Reservations
+            .Include(r => r.Customer)
+            .Include(r => r.DiningTable)
+            .OrderByDescending(r => r.CreatedAt)
+            .ToListAsync();
+            
         return Ok(reservations);
     }
 

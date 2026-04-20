@@ -21,6 +21,27 @@ public static class DataSeeder
         SeedHistory(context); // Orders & Invoices
         SeedReservations(context);
         SeedVouchers(context);
+
+        // Nâng cấp dữ liệu cũ (Legacy Migration)
+        FixOrphanReservations(context);
+    }
+
+    private static void FixOrphanReservations(AppDbContext context)
+    {
+        // Tìm các đặt bàn cũ chưa có liên kết bàn (mặc định ban đầu là 0)
+        var orphans = context.Reservations.Where(r => r.DiningTableId == 0).ToList();
+        if (!orphans.Any()) return;
+
+        // Tìm bàn đầu tiên làm "cứu cánh"
+        var firstTable = context.DiningTables.OrderBy(t => t.Id).FirstOrDefault();
+        if (firstTable == null) return;
+
+        foreach (var r in orphans)
+        {
+            r.DiningTableId = firstTable.Id;
+        }
+
+        context.SaveChanges();
     }
 
     private static void SeedUsers(AppDbContext context)
@@ -198,10 +219,13 @@ public static class DataSeeder
         if (context.Reservations.Any()) return;
 
         var customers = context.Customers.ToList();
+        var firstTable = context.DiningTables.FirstOrDefault();
+        if (firstTable == null) return;
+
         var items = new[]
         {
-            new Reservation { CustomerId = customers[0].Id, ReservationTime = DateTime.UtcNow.AddHours(2), PaxCount = 4, Status = ReservationStatus.Confirmed, SpecialRequests = "Gần cửa sổ, chuẩn bị hoa chúc mừng sinh nhật." },
-            new Reservation { CustomerId = customers[1].Id, ReservationTime = DateTime.UtcNow.AddDays(1).AddHours(19), PaxCount = 2, Status = ReservationStatus.Confirmed, SpecialRequests = "Kỷ niệm ngày cưới." }
+            new Reservation { CustomerId = customers[0].Id, DiningTableId = firstTable.Id, ReservationTime = DateTime.UtcNow.AddHours(2), PaxCount = 4, Status = ReservationStatus.Confirmed, SpecialRequests = "Gần cửa sổ, chuẩn bị hoa chúc mừng sinh nhật." },
+            new Reservation { CustomerId = customers[1].Id, DiningTableId = firstTable.Id, ReservationTime = DateTime.UtcNow.AddDays(1).AddHours(19), PaxCount = 2, Status = ReservationStatus.Confirmed, SpecialRequests = "Kỷ niệm ngày cưới." }
         };
         context.Reservations.AddRange(items);
         context.SaveChanges();
