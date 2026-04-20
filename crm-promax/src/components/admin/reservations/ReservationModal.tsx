@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
    X, Search, Users, Clock, Calendar, 
    Loader2, CheckCircle2, MessageSquare, 
-   Plus, UserPlus, Phone, User
+   Plus, UserPlus, Phone, User, LayoutGrid
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
