@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace ConnectDB.Models;
 
@@ -30,6 +31,7 @@ public class Voucher
     public int CustomerId { get; set; }
 
     [ForeignKey("CustomerId")]
+    [JsonIgnore]
     public Customer? Customer { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

@@ -37,9 +37,10 @@ public class Customer
     [MaxLength(50)]
     public string? Segment { get; set; } // Ví dụ: "New", "Loyal", "AtRisk"
 
-    // Navigation property
+    // Navigation properties
     [JsonIgnore]
     public ICollection<Reservation> Reservations { get; set; } = new List<Reservation>();
     
+    [JsonIgnore]
     public ICollection<Voucher> Vouchers { get; set; } = new List<Voucher>();
 }

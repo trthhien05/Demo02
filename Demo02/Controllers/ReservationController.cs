@@ -29,6 +29,7 @@ public class ReservationController : ControllerBase
     public async Task<IActionResult> GetReservations()
     {
         var reservations = await _context.Reservations
+            .AsNoTracking()
             .Include(r => r.Customer)
             .Include(r => r.DiningTable)
             .OrderByDescending(r => r.CreatedAt)
