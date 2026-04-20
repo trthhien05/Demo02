@@ -361,29 +361,31 @@ export default function InventoryPage() {
                           exit={{ opacity: 0, x: 10 }}
                           transition={{ delay: idx * 0.04 }}
                           className={cn(
-                            "border-b border-white/5 transition-colors group relative",
+                            "border-b border-white/5 transition-colors group",
                             isLow ? "hover:bg-red-500/5 bg-red-500/[0.02]" : "hover:bg-white/5"
                           )}
                         >
-                          {/* Severity Indicator Line */}
-                          {isLow && (
-                             <div className={cn(
-                                "absolute left-0 top-1/2 -translate-y-1/2 w-1 h-3/4 rounded-full",
-                                item.stockQuantity === 0 ? "bg-red-600 animate-pulse shadow-lg shadow-red-500" : "bg-red-500"
-                             )} />
-                          )}
                           {/* Name */}
-                          <td className="py-4 px-6">
+                          <td className="py-4 px-6 relative">
+                            {/* Severity Indicator Line */}
+                            {isLow && (
+                               <div className={cn(
+                                  "absolute left-0 top-1/2 -translate-y-1/2 w-1 h-3/4 rounded-full",
+                                  item.stockQuantity === 0 ? "bg-red-600 animate-pulse shadow-lg shadow-red-500" : "bg-red-500"
+                               )} />
+                            )}
                             <div className="flex items-center gap-3">
-                              {isLow && (
-                                <span className="text-red-400 animate-pulse">
-                                  <AlertTriangle size={16} />
-                                </span>
-                              )}
-                              <div>
-                                <div className="font-bold">{item.name}</div>
-                                <div className="text-xs text-muted-foreground">Min: {item.minStockLevel} {item.unit}</div>
-                              </div>
+                               <div className="w-5 flex-shrink-0 flex justify-center">
+                                  {isLow && (
+                                    <span className="text-red-400 animate-pulse">
+                                      <AlertTriangle size={16} />
+                                    </span>
+                                  )}
+                               </div>
+                               <div>
+                                 <div className="font-bold">{item.name}</div>
+                                 <div className="text-xs text-muted-foreground">Min: {item.minStockLevel} {item.unit}</div>
+                               </div>
                             </div>
                           </td>
 
