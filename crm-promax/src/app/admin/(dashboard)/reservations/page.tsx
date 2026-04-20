@@ -148,7 +148,7 @@ export default function ReservationsPage() {
 
   const updateStatusMutation = useMutation({
     mutationFn: ({ id, status }: { id: number; status: TableStatus }) =>
-      apiClient.post(`/table/${id}/status`, status),
+      apiClient.post(`/table/${id}/status`, { status }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tables'] });
       toast.success('Cập nhật trạng thái bàn!');

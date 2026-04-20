@@ -64,17 +64,22 @@ public class TableController : ControllerBase
     }
 
     [HttpPost("{id}/status")]
-    public async Task<IActionResult> UpdateStatus(int id, [FromBody] TableStatus status)
+    public async Task<IActionResult> UpdateStatus(int id, [FromBody] TableStatusUpdateDto request)
     {
         var table = await _context.DiningTables.FindAsync(id);
         if (table == null) return NotFound();
 
-        table.Status = status;
+        table.Status = request.Status;
         await _context.SaveChangesAsync();
 
         // Đồng bộ SignalR
-        await _hubContext.Clients.All.SendAsync("TableStatusChanged", id, status.ToString());
+        await _hubContext.Clients.All.SendAsync("TableStatusChanged", id, request.Status.ToString());
 
         return Ok(table);
     }
+}
+
+public class TableStatusUpdateDto
+{
+    public TableStatus Status { get; set; }
 }
