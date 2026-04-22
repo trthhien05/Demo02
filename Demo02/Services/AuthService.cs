@@ -250,7 +250,7 @@ public class AuthService : IAuthService
         var user = await _context.Users.FindAsync(userId);
         if (user == null) return false;
 
-        if (user.PasswordHash != HashPassword(oldPassword)) return false;
+        if (!VerifyPassword(oldPassword, user.PasswordHash)) return false;
 
         user.PasswordHash = HashPassword(newPassword);
         await _context.SaveChangesAsync();

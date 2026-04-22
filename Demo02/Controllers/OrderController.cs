@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.SignalR;
 using ConnectDB.Hubs;
 using ConnectDB.Services;
 using System.Security.Claims;
+using ConnectDB.Models.Common;
 
 namespace ConnectDB.Controllers;
 
@@ -26,12 +27,31 @@ public class OrderController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetOrders()
+    public async Task<IActionResult> GetOrders([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    {
+        var totalCount = await _context.Orders.CountAsync();
+        
+        var orders = await _context.Orders
+            .Include(o => o.DiningTable)
+            .Include(o => o.OrderItems)
+                .ThenInclude(oi => oi.MenuItem)
+            .OrderByDescending(o => o.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        var result = new PagedResult<Order>(orders, totalCount, page, pageSize);
+        return Ok(result);
+    }
+
+    [HttpGet("active")]
+    public async Task<IActionResult> GetActiveOrders()
     {
         var orders = await _context.Orders
             .Include(o => o.DiningTable)
             .Include(o => o.OrderItems)
                 .ThenInclude(oi => oi.MenuItem)
+            .Where(o => o.Status != OrderStatus.Completed && o.Status != OrderStatus.Cancelled)
             .OrderByDescending(o => o.CreatedAt)
             .ToListAsync();
         return Ok(orders);
@@ -73,14 +93,14 @@ public class OrderController : ControllerBase
         // 4. SignalR: Thông báo cho Bếp và Cập nhật sơ đồ bàn
         if (table != null)
         {
-            await _hubContext.Clients.All.SendAsync("OrderCreated", order.Id, table.TableNumber);
+            await _hubContext.Clients.Group("Kitchen").SendAsync("OrderCreated", order.Id, table.TableNumber);
             await _hubContext.Clients.All.SendAsync("TableStatusChanged", table.Id, table.Status.ToString());
-            await _hubContext.Clients.All.SendAsync("ReceiveNotification", "Hệ thống POS", $"Bàn {table.TableNumber} vừa tạo Order mới!");
+            await _hubContext.Clients.Group("Kitchen").SendAsync("ReceiveNotification", "Hệ thống POS", $"Bàn {table.TableNumber} vừa tạo Order mới!");
         }
         else
         {
-            await _hubContext.Clients.All.SendAsync("OrderCreated", order.Id, "MANG VỀ");
-            await _hubContext.Clients.All.SendAsync("ReceiveNotification", "Hệ thống POS", "Vừa có đơn hàng MANG VỀ mới!");
+            await _hubContext.Clients.Group("Kitchen").SendAsync("OrderCreated", order.Id, "MANG VỀ");
+            await _hubContext.Clients.Group("Kitchen").SendAsync("ReceiveNotification", "Hệ thống POS", "Vừa có đơn hàng MANG VỀ mới!");
         }
 
         // Audit Log
@@ -108,7 +128,8 @@ public class OrderController : ControllerBase
         await _context.SaveChangesAsync();
 
         // SignalR: Thông báo trạng thái mới (cho Bếp hoặc Nhân viên phục vụ)
-        await _hubContext.Clients.All.SendAsync("OrderStatusChanged", id, status.ToString());
+        await _hubContext.Clients.Group("Kitchen").SendAsync("OrderStatusChanged", id, status.ToString());
+        await _hubContext.Clients.Group("Kitchen").SendAsync("ReceiveNotification", "Hệ thống POS", $"Đơn hàng #{id} chuyển sang {status}");
         
         // Audit Log
         var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -117,6 +138,70 @@ public class OrderController : ControllerBase
             await _audit.LogAsync(userId, "Cập nhật", "Đơn hàng", $"Đã thay đổi trạng thái đơn hàng #{id} thành {status}");
         }
 
+        return Ok(order);
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> CancelOrder(int id)
+    {
+        var order = await _context.Orders.Include(o => o.DiningTable).FirstOrDefaultAsync(o => o.Id == id);
+        if (order == null) return NotFound();
+
+        if (order.Status == OrderStatus.Completed)
+            return BadRequest("Không thể hủy đơn hàng đã hoàn thành.");
+
+        order.Status = OrderStatus.Cancelled;
+        
+        if (order.DiningTable != null)
+        {
+            order.DiningTable.Status = TableStatus.Available;
+        }
+
+        await _context.SaveChangesAsync();
+
+        // SignalR: Notify cancellation
+        await _hubContext.Clients.All.SendAsync("OrderCancelled", id);
+        if (order.DiningTable != null)
+            await _hubContext.Clients.All.SendAsync("TableStatusChanged", order.DiningTable.Id, "Available");
+
+        return Ok(new { Message = $"Đã hủy đơn hàng #{id}" });
+    }
+
+    [HttpPost("{id}/add-item")]
+    public async Task<IActionResult> AddItemToOrder(int id, [FromBody] OrderItem item)
+    {
+        var order = await _context.Orders.Include(o => o.OrderItems).FirstOrDefaultAsync(o => o.Id == id);
+        if (order == null) return NotFound();
+
+        if (order.Status == OrderStatus.Completed || order.Status == OrderStatus.Cancelled)
+            return BadRequest("Không thể thêm món vào đơn đã đóng hoặc đã hủy.");
+
+        var menuItem = await _context.MenuItems.FindAsync(item.MenuItemId);
+        if (menuItem == null) return BadRequest("Món ăn không tồn tại");
+
+        item.OrderId = id;
+        item.UnitPrice = menuItem.Price;
+        
+        _context.OrderItems.Add(item);
+        order.TotalAmount += item.UnitPrice * item.Quantity;
+
+        await _context.SaveChangesAsync();
+        return Ok(order);
+    }
+
+    [HttpDelete("{id}/item/{itemId}")]
+    public async Task<IActionResult> RemoveItemFromOrder(int id, int itemId)
+    {
+        var order = await _context.Orders.Include(o => o.OrderItems).FirstOrDefaultAsync(o => o.Id == id);
+        if (order == null) return NotFound();
+
+        var item = order.OrderItems.FirstOrDefault(oi => oi.Id == itemId);
+        if (item == null) return NotFound("Không tìm thấy món này trong đơn hàng");
+
+        order.TotalAmount -= item.UnitPrice * item.Quantity;
+        _context.OrderItems.Remove(item);
+
+        await _context.SaveChangesAsync();
         return Ok(order);
     }
 }

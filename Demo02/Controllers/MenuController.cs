@@ -3,6 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using ConnectDB.Data;
 using ConnectDB.Models;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using System.IO;
+using System;
 
 namespace ConnectDB.Controllers;
 
@@ -85,5 +88,34 @@ public class MenuController : ControllerBase
         _context.MenuItems.Remove(item);
         await _context.SaveChangesAsync();
         return Ok();
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpPost("item/{id}/image")]
+    public async Task<IActionResult> UploadImage(int id, IFormFile file)
+    {
+        var item = await _context.MenuItems.FindAsync(id);
+        if (item == null) return NotFound();
+
+        if (file == null || file.Length == 0) return BadRequest("File không hợp lệ");
+
+        // Tạo thư mục nếu chưa có
+        var uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "menu");
+        if (!Directory.Exists(uploadPath)) Directory.CreateDirectory(uploadPath);
+
+        // Lưu file
+        var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
+        var filePath = Path.Combine(uploadPath, fileName);
+
+        using (var stream = new FileStream(filePath, FileMode.Create))
+        {
+            await file.CopyToAsync(stream);
+        }
+
+        // Cập nhật URL
+        item.ImageUrl = $"/images/menu/{fileName}";
+        await _context.SaveChangesAsync();
+
+        return Ok(new { ImageUrl = item.ImageUrl });
     }
 }

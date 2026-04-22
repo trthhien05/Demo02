@@ -91,6 +91,22 @@ public class InventoryController : ControllerBase
     }
 
     [Authorize(Roles = "Admin")]
+    [HttpPost("restock/{id}")]
+    public async Task<IActionResult> Restock(int id, [FromQuery] decimal quantity)
+    {
+        if (quantity <= 0) return BadRequest("Quantity must be positive");
+
+        var item = await _context.InventoryItems.FindAsync(id);
+        if (item == null) return NotFound();
+
+        item.StockQuantity += quantity;
+        item.LastUpdated = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+        return Ok(item);
+    }
+
+    [Authorize(Roles = "Admin")]
     [HttpPost("adjust/{id}")]
     public async Task<IActionResult> AdjustStock(int id, [FromQuery] decimal amount)
     {

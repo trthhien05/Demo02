@@ -27,6 +27,30 @@ public class TableController : ControllerBase
         return Ok(await _context.DiningTables.ToListAsync());
     }
 
+    [HttpGet("available")]
+    public async Task<IActionResult> GetAvailableTables([FromQuery] DateTime dateTime, [FromQuery] int paxCount)
+    {
+        var utcDateTime = DateTime.SpecifyKind(dateTime, DateTimeKind.Utc);
+        
+        // Window 2 tiếng trước và sau để tránh trùng lịch
+        var startWindow = utcDateTime.AddHours(-2);
+        var endWindow = utcDateTime.AddHours(2);
+
+        var reservedTableIds = await _context.Reservations
+            .Where(r => r.Status != ReservationStatus.Cancelled &&
+                        r.ReservationTime > startWindow &&
+                        r.ReservationTime < endWindow)
+            .Select(r => r.DiningTableId)
+            .Distinct()
+            .ToListAsync();
+
+        var availableTables = await _context.DiningTables
+            .Where(t => t.Capacity >= paxCount && !reservedTableIds.Contains(t.Id))
+            .ToListAsync();
+
+        return Ok(availableTables);
+    }
+
     [Authorize(Roles = "Admin")]
     [HttpPost]
     public async Task<IActionResult> CreateTable(DiningTable table)

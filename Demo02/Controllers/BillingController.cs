@@ -14,16 +14,17 @@ namespace ConnectDB.Controllers;
 public class BillingController : ControllerBase
 {
     private readonly AppDbContext _context;
-    private readonly ILoyaltyService _loyaltyService;
     private readonly IInventoryService _inventoryService;
     private readonly IHubContext<NotificationHub> _hubContext;
+    private readonly IPdfService _pdfService;
 
-    public BillingController(AppDbContext context, ILoyaltyService loyaltyService, IInventoryService inventoryService, IHubContext<NotificationHub> hubContext)
+    public BillingController(AppDbContext context, ILoyaltyService loyaltyService, IInventoryService inventoryService, IHubContext<NotificationHub> hubContext, IPdfService pdfService)
     {
         _context = context;
         _loyaltyService = loyaltyService;
         _inventoryService = inventoryService;
         _hubContext = hubContext;
+        _pdfService = pdfService;
     }
 
     [HttpGet("preview/{orderId}")]
@@ -35,9 +36,13 @@ public class BillingController : ControllerBase
 
         if (order == null) return NotFound("Không tìm thấy đơn hàng");
 
+        var settings = await _context.RestaurantSettings.FirstOrDefaultAsync();
+        decimal taxRate = settings?.TaxRate ?? 0.08m;
+        decimal svcChargeRate = settings?.ServiceCharge ?? 0.05m;
+
         decimal subtotal = order.TotalAmount;
-        decimal vat = subtotal * 0.08m; // Giả định VAT 8%
-        decimal serviceCharge = subtotal * 0.05m; // Giả định phí phục vụ 5%
+        decimal vat = subtotal * taxRate;
+        decimal serviceCharge = subtotal * svcChargeRate;
         decimal final = subtotal + vat + serviceCharge;
 
         var preview = new
@@ -117,5 +122,19 @@ public class BillingController : ControllerBase
         if (invoice == null) return NotFound("Không tìm thấy hóa đơn cho đơn hàng này");
 
         return Ok(invoice);
+    }
+
+    [HttpGet("invoice/{id}/pdf")]
+    public async Task<IActionResult> GetInvoicePdf(int id)
+    {
+        try
+        {
+            var pdfBytes = await _pdfService.GenerateInvoicePdfAsync(id);
+            return File(pdfBytes, "application/pdf", $"Invoice_{id}.pdf");
+        }
+        catch (Exception ex)
+        {
+            return NotFound(ex.Message);
+        }
     }
 }

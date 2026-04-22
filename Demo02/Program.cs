@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Serilog;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Microsoft.EntityFrameworkCore;
@@ -12,6 +13,13 @@ using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure Serilog
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.Console()
+    .CreateLogger();
+
+builder.Host.UseSerilog();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
@@ -112,11 +120,16 @@ builder.Services.AddRateLimiter(options =>
 });
 
 // Add services to the container.
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<AppDbContext>("database");
+
 builder.Services.AddMemoryCache();
+builder.Services.AddResponseCaching();
 builder.Services.AddScoped<IVoucherService, VoucherService>();
 builder.Services.AddScoped<ILoyaltyService, LoyaltyService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
+builder.Services.AddScoped<IPdfService, PdfService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 
@@ -124,10 +137,12 @@ builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddSingleton<IMessageQueue, InMemoryMessageQueue>();
 builder.Services.AddHostedService<MarketingMessageWorker>();
 builder.Services.AddHostedService<SegmentationBackgroundService>();
+builder.Services.AddHostedService<ReservationReminderService>();
 
 // JWT Authentication Configuration
 var jwtSettings = builder.Configuration.GetSection("Jwt");
-var key = Encoding.ASCII.GetBytes(jwtSettings["Key"]!);
+var keyString = Environment.GetEnvironmentVariable("JWT_KEY") ?? jwtSettings["Key"]!;
+var key = Encoding.ASCII.GetBytes(keyString);
 
 builder.Services.AddAuthentication(options =>
 {
@@ -198,12 +213,14 @@ using (var scope = app.Services.CreateScope())
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"An error occurred while migrating the database: {ex.Message}");
+        Log.Error(ex, "An error occurred while migrating the database");
     }
 }
 
 // Seed Initial Data (Comprehensive)
 DataSeeder.SeedAll(app.Services);
+
+Log.Information("Application starting up in {Environment} mode", app.Environment.EnvironmentName);
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -215,8 +232,13 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseCors("AllowFrontend");
+app.UseStaticFiles();
+app.UseSerilogRequestLogging();
 
 app.UseRateLimiter(); // Add Rate Limiter middleware
+
+app.UseResponseCaching();
+app.MapHealthChecks("/health");
 
 app.UseAuthentication();
 app.UseAuthorization();

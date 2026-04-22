@@ -4,6 +4,7 @@ using ConnectDB.Models;
 using System.Threading.Tasks;
 using System;
 using Microsoft.AspNetCore.RateLimiting;
+using System.ComponentModel.DataAnnotations;
 
 namespace ConnectDB.Controllers;
 
@@ -125,25 +126,38 @@ public class AuthController : ControllerBase
 
 public class RegisterRequest
 {
+    [Required, MinLength(3)]
     public string Username { get; set; } = string.Empty;
+
+    [Required, MinLength(6)]
     public string Password { get; set; } = string.Empty;
+
+    [Required]
     public string FullName { get; set; } = string.Empty;
+
     public UserRole Role { get; set; } = UserRole.Staff;
 }
 
 public class LoginRequest
 {
+    [Required]
     public string Username { get; set; } = string.Empty;
+
+    [Required]
     public string Password { get; set; } = string.Empty;
 }
 
 public class ForgotPasswordRequest
 {
+    [Required]
     public string Identifier { get; set; } = string.Empty;
 }
 
 public class ResetPasswordRequest
 {
+    [Required]
     public string Token { get; set; } = string.Empty;
-    public string NewPassword { get; set; } = string.Empty;
+
+    [Required, MinLength(6)]
+    public string Password { get; set; } = string.Empty;
 }

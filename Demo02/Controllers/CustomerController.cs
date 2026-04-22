@@ -6,6 +6,7 @@ using ConnectDB.Models;
 using ConnectDB.Services;
 
 using Microsoft.AspNetCore.Authorization;
+using ConnectDB.Models.Common;
 
 namespace ConnectDB.Controllers;
 
@@ -24,10 +25,29 @@ public class CustomerController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAllCustomers()
+    public async Task<IActionResult> GetAllCustomers([FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null, [FromQuery] CustomerTier? tier = null)
     {
-        var customers = await _context.Customers.ToListAsync();
-        return Ok(customers);
+        var query = _context.Customers.AsQueryable();
+
+        if (!string.IsNullOrEmpty(search))
+        {
+            query = query.Where(c => (c.FullName != null && c.FullName.Contains(search)) || c.PhoneNumber.Contains(search));
+        }
+
+        if (tier.HasValue)
+        {
+            query = query.Where(c => c.Tier == tier.Value);
+        }
+
+        var totalCount = await query.CountAsync();
+        var customers = await query
+            .OrderByDescending(c => c.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        var result = new PagedResult<Customer>(customers, totalCount, page, pageSize);
+        return Ok(result);
     }
 
     [HttpGet("{id}")]
@@ -156,7 +176,6 @@ public class CustomerController : ControllerBase
         });
     }
 
-    // POST: api/customer/{id}/adjust-points
     [HttpPost("{id}/adjust-points")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> AdjustPoints(int id, [FromBody] int pointsDelta)
@@ -166,6 +185,48 @@ public class CustomerController : ControllerBase
         customer.Points = Math.Max(0, customer.Points + pointsDelta);
         await _context.SaveChangesAsync();
         return Ok(new { Message = "Cập nhật điểm thành công", NewPoints = customer.Points });
+    }
+
+    [HttpGet("{id}/orders")]
+    public async Task<IActionResult> GetCustomerOrders(int id)
+    {
+        var orders = await _context.Orders
+            .Include(o => o.DiningTable)
+            .Include(o => o.OrderItems)
+                .ThenInclude(oi => oi.MenuItem)
+            .Where(o => _context.Invoices.Any(i => i.OrderId == o.Id && i.CustomerId == id))
+            .OrderByDescending(o => o.CreatedAt)
+            .ToListAsync();
+        return Ok(orders);
+    }
+
+    [HttpGet("{id}/invoices")]
+    public async Task<IActionResult> GetCustomerInvoices(int id)
+    {
+        var invoices = await _context.Invoices
+            .Where(i => i.CustomerId == id)
+            .OrderByDescending(i => i.IssuedAt)
+            .ToListAsync();
+        return Ok(invoices);
+    }
+
+    [HttpGet("{id}/vouchers")]
+    public async Task<IActionResult> GetCustomerVouchers(int id)
+    {
+        var vouchers = await _context.Vouchers
+            .Where(v => v.CustomerId == id)
+            .ToListAsync();
+        return Ok(vouchers);
+    }
+
+    [HttpGet("{id}/loyalty")]
+    public async Task<IActionResult> GetCustomerLoyalty(int id)
+    {
+        var transactions = await _context.LoyaltyTransactions
+            .Where(t => t.CustomerId == id)
+            .OrderByDescending(t => t.CreatedAt)
+            .ToListAsync();
+        return Ok(transactions);
     }
 }
 

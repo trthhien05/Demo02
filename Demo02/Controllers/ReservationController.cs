@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using ConnectDB.Messaging;
 using Microsoft.AspNetCore.SignalR;
 using ConnectDB.Hubs;
+using ConnectDB.Models.Common;
 
 namespace ConnectDB.Controllers;
 
@@ -26,16 +27,34 @@ public class ReservationController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetReservations()
+    public async Task<IActionResult> GetReservations([FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] ReservationStatus? status = null, [FromQuery] DateTime? date = null)
     {
-        var reservations = await _context.Reservations
+        var query = _context.Reservations
             .AsNoTracking()
             .Include(r => r.Customer)
             .Include(r => r.DiningTable)
+            .AsQueryable();
+
+        if (status.HasValue)
+        {
+            query = query.Where(r => r.Status == status.Value);
+        }
+
+        if (date.HasValue)
+        {
+            var d = DateTime.SpecifyKind(date.Value.Date, DateTimeKind.Utc);
+            query = query.Where(r => r.ReservationTime >= d && r.ReservationTime < d.AddDays(1));
+        }
+
+        var totalCount = await query.CountAsync();
+        var reservations = await query
             .OrderByDescending(r => r.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync();
             
-        return Ok(reservations);
+        var result = new PagedResult<Reservation>(reservations, totalCount, page, pageSize);
+        return Ok(result);
     }
 
     [HttpPost]

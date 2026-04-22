@@ -21,6 +21,42 @@ public class ReportsController : ControllerBase
         _context = context;
     }
 
+    [HttpGet("dashboard")]
+    public async Task<IActionResult> GetDashboardStats()
+    {
+        var today = DateTime.UtcNow.Date;
+        var firstDayOfMonth = new DateTime(today.Year, today.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        var todayRevenue = await _context.Invoices
+            .Where(i => i.Status == InvoiceStatus.Paid && i.IssuedAt >= today)
+            .SumAsync(i => i.FinalAmount);
+
+        var activeOrdersCount = await _context.Orders
+            .CountAsync(o => o.Status != OrderStatus.Completed && o.Status != OrderStatus.Cancelled);
+
+        var availableTablesCount = await _context.DiningTables
+            .CountAsync(t => t.Status == TableStatus.Available);
+
+        var todayReservationsCount = await _context.Reservations
+            .CountAsync(r => r.Status != ReservationStatus.Cancelled && r.ReservationTime >= today && r.ReservationTime < today.AddDays(1));
+
+        var lowStockAlertsCount = await _context.InventoryItems
+            .CountAsync(i => i.StockQuantity <= i.MinStockLevel);
+
+        var newCustomersThisMonthCount = await _context.Customers
+            .CountAsync(c => c.CreatedAt >= firstDayOfMonth);
+
+        return Ok(new
+        {
+            TodayRevenue = todayRevenue,
+            ActiveOrders = activeOrdersCount,
+            AvailableTables = availableTablesCount,
+            TodayReservations = todayReservationsCount,
+            LowStockAlerts = lowStockAlertsCount,
+            NewCustomersThisMonth = newCustomersThisMonthCount
+        });
+    }
+
     // GET: api/reports/customer-summary
     [HttpGet("customer-summary")]
     public async Task<IActionResult> GetCustomerSummary()
@@ -90,12 +126,25 @@ public class ReportsController : ControllerBase
 
     // GET: api/reports/revenue-stats
     [HttpGet("revenue-stats")]
-    public async Task<IActionResult> GetRevenueStats([FromQuery] int days = 7)
+    [ResponseCache(Duration = 300, VaryByQueryKeys = new[] { "days", "startDate", "endDate" })]
+    public async Task<IActionResult> GetRevenueStats([FromQuery] int days = 7, [FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null)
     {
-        var targetDate = DateTime.UtcNow.Date.AddDays(-days);
+        DateTime start;
+        DateTime end;
+
+        if (startDate.HasValue && endDate.HasValue)
+        {
+            start = DateTime.SpecifyKind(startDate.Value.Date, DateTimeKind.Utc);
+            end = DateTime.SpecifyKind(endDate.Value.Date, DateTimeKind.Utc).AddDays(1);
+        }
+        else
+        {
+            start = DateTime.UtcNow.Date.AddDays(-days);
+            end = DateTime.UtcNow.Date.AddDays(1);
+        }
         
         var dailyRevenueData = await _context.Invoices
-            .Where(i => i.IssuedAt >= targetDate && i.Status == InvoiceStatus.Paid)
+            .Where(i => i.IssuedAt >= start && i.IssuedAt < end && i.Status == InvoiceStatus.Paid)
             .GroupBy(i => i.IssuedAt.Date)
             .Select(g => new { Date = g.Key, Amount = g.Sum(i => i.FinalAmount) })
             .OrderBy(r => r.Date)
@@ -108,6 +157,7 @@ public class ReportsController : ControllerBase
 
     // GET: api/reports/top-selling
     [HttpGet("top-selling")]
+    [ResponseCache(Duration = 300)]
     public async Task<IActionResult> GetTopSellingItems()
     {
         var topItems = await _context.OrderItems
@@ -168,6 +218,7 @@ public class ReportsController : ControllerBase
     // --- NEW ADVANCED ANALYTICS ---
 
     [HttpGet("busy-hours")]
+    [ResponseCache(Duration = 300)]
     public async Task<IActionResult> GetBusyHours()
     {
         var orders = await _context.Orders
@@ -184,6 +235,7 @@ public class ReportsController : ControllerBase
     }
 
     [HttpGet("category-revenue")]
+    [ResponseCache(Duration = 300)]
     public async Task<IActionResult> GetCategoryRevenue()
     {
         var categoryData = await _context.OrderItems

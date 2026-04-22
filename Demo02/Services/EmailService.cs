@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using MimeKit;
 using MimeKit.Text;
 using System.Threading.Tasks;
+using Serilog;
 
 namespace ConnectDB.Services;
 
@@ -32,18 +33,19 @@ public class EmailService : IEmailService
             var server = settings["SmtpServer"];
             var port = int.Parse(settings["Port"]!);
             var user = settings["SenderEmail"];
-            var pass = settings["AppPassword"]?.Replace(" ", "");
+            var pass = Environment.GetEnvironmentVariable("EMAIL_APP_PASSWORD") 
+                       ?? settings["AppPassword"]?.Replace(" ", "");
 
             await smtp.ConnectAsync(server, port, SecureSocketOptions.StartTls);
             await smtp.AuthenticateAsync(user, pass);
             await smtp.SendAsync(email);
             await smtp.DisconnectAsync(true);
             
-            Console.WriteLine($"[EMAIL SERVICE] Email sent successfully to {toEmail}");
+            Log.Information("[EMAIL SERVICE] Email sent successfully to {toEmail}", toEmail);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[EMAIL SERVICE ERROR] Failed to send email to {toEmail}: {ex.Message}");
+            Log.Error(ex, "[EMAIL SERVICE ERROR] Failed to send email to {toEmail}", toEmail);
             throw; 
         }
     }
