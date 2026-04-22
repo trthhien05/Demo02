@@ -11,6 +11,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import Pagination from '@/components/common/Pagination';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function exportCustomersCSV(customers: any[]) {
@@ -420,12 +421,27 @@ export default function CustomersPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const pageSize = 15;
   const queryClient = useQueryClient();
 
-  const { data: customers = [], isLoading } = useQuery<Customer[]>({
-    queryKey: ['customers'],
-    queryFn: async () => (await apiClient.get('/customer')).data,
+  const { data: pagedResult, isLoading } = useQuery({
+    queryKey: ['customers', page, tierFilter, search],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.append('page', page.toString());
+      params.append('pageSize', pageSize.toString());
+      if (tierFilter !== null) params.append('tier', tierFilter.toString());
+      if (search.trim()) params.append('search', search.trim());
+      
+      const res = await apiClient.get(`/customer?${params.toString()}`);
+      return res.data;
+    },
   });
+
+  const customers = pagedResult?.items || [];
+  const totalPages = pagedResult?.totalPages || 0;
+  const totalItems = pagedResult?.totalCount || 0;
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiClient.delete(`/customer/${id}`),
@@ -455,16 +471,8 @@ export default function CustomersPage() {
     0: customers.filter(c => c.tier === 0).length,
   }), [customers]);
 
-  const displayed = useMemo(() => {
-    let list = customers;
-    if (tierFilter !== null) list = list.filter(c => c.tier === tierFilter);
-    if (search.trim()) list = list.filter(c =>
-      c.fullName?.toLowerCase().includes(search.toLowerCase()) ||
-      c.phoneNumber.includes(search) ||
-      c.email?.toLowerCase().includes(search.toLowerCase())
-    );
-    return list.sort((a, b) => b.tier - a.tier || b.points - a.points);
-  }, [customers, tierFilter, search]);
+  // Server-side filtering now
+  const displayed = customers;
 
   return (
     <div className="space-y-8 pb-10">
@@ -622,6 +630,14 @@ export default function CustomersPage() {
           )}
         </motion.div>
       )}
+
+      <Pagination 
+        currentPage={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+        totalItems={totalItems}
+        pageSize={pageSize}
+      />
 
       {/* Profile Modal */}
       <AnimatePresence>

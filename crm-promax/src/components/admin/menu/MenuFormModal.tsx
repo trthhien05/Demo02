@@ -78,30 +78,35 @@ export default function MenuFormModal({ isOpen, onClose, categories, onSubmitIte
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // If it's a new item (no ID), we just store the file locally for now
+    // and upload it after the item is created.
+    if (!editItem) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setValue('imageUrl', event.target?.result as string, { shouldValidate: true });
+        // Store the actual file object for the submit handler
+        (window as any)._pendingMenuImage = file;
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    // For existing items, upload immediately
     setIsUploading(true);
     const formData = new FormData();
     formData.append('file', file);
-    
-    const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'demo';
-    const UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'docs_upload_preset';
-    
-    formData.append('upload_preset', UPLOAD_PRESET);
 
     try {
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
-        method: 'POST',
-        body: formData
+      const res = await apiClient.post(`/menu/item/${editItem.id}/image`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
-      const data = await res.json();
       
-      if (data.secure_url) {
-        setValue('imageUrl', data.secure_url, { shouldValidate: true });
-        toast.success("Tải ảnh thành công");
-      } else {
-        toast.error("Lỗi tải ảnh Cloudinary");
+      if (res.data.imageUrl) {
+        setValue('imageUrl', res.data.imageUrl, { shouldValidate: true });
+        toast.success("Tải ảnh lên server thành công");
       }
-    } catch {
-      toast.error("Không thể kết nối đến Cloudinary.");
+    } catch (err: any) {
+      toast.error(err.response?.data || "Không thể tải ảnh lên server.");
     } finally {
       setIsUploading(false);
     }

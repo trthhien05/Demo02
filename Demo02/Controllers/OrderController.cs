@@ -27,14 +27,35 @@ public class OrderController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetOrders([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    public async Task<IActionResult> GetOrders(
+        [FromQuery] int page = 1, 
+        [FromQuery] int pageSize = 10,
+        [FromQuery] OrderStatus? status = null,
+        [FromQuery] string? search = null,
+        [FromQuery] DateTime? date = null)
     {
-        var totalCount = await _context.Orders.CountAsync();
-        
-        var orders = await _context.Orders
+        var query = _context.Orders
             .Include(o => o.DiningTable)
             .Include(o => o.OrderItems)
                 .ThenInclude(oi => oi.MenuItem)
+            .AsQueryable();
+
+        // Filters
+        if (status.HasValue)
+            query = query.Where(o => o.status == status.Value);
+
+        if (!string.IsNullOrEmpty(search))
+            query = query.Where(o => o.Id.ToString().Contains(search) || (o.DiningTable != null && o.DiningTable.TableNumber.Contains(search)));
+
+        if (date.HasValue)
+        {
+            var utcDate = DateTime.SpecifyKind(date.Value.Date, DateTimeKind.Utc);
+            query = query.Where(o => o.CreatedAt.Date == utcDate);
+        }
+
+        var totalCount = await query.CountAsync();
+        
+        var orders = await query
             .OrderByDescending(o => o.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)

@@ -94,10 +94,28 @@ export default function MenuPage() {
   });
 
   const handleSubmitItem = async (data: any) => {
-    if (data.id) {
-      await updateMutation.mutateAsync({ id: data.id, item: data });
-    } else {
-      await createMutation.mutateAsync(data);
+    try {
+      if (data.id) {
+        await updateMutation.mutateAsync({ id: data.id, item: data });
+      } else {
+        const res = await createMutation.mutateAsync(data);
+        const newItem = res.data;
+        
+        // Handle pending image upload for new items
+        const pendingFile = (window as any)._pendingMenuImage;
+        if (pendingFile && newItem.id) {
+          const formData = new FormData();
+          formData.append('file', pendingFile);
+          await apiClient.post(`/menu/item/${newItem.id}/image`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+          queryClient.invalidateQueries({ queryKey: ['menu'] });
+          (window as any)._pendingMenuImage = null;
+        }
+      }
+    } catch (err: any) {
+      console.error(err);
+      throw err;
     }
   };
 

@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useOrderSignalR } from '@/lib/hooks/useOrderSignalR';
 import ReservationModal from '@/components/admin/reservations/ReservationModal';
+import Pagination from '@/components/common/Pagination';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type TableStatus = 0 | 1 | 2 | 3; // Available | Reserved | Occupied | Cleaning
@@ -132,6 +133,8 @@ export default function ReservationsPage() {
   const [view, setView] = useState<'map' | 'list'>('map');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
 
   useOrderSignalR(); // Listen for real-time table status changes
 
@@ -142,12 +145,24 @@ export default function ReservationsPage() {
     // No refetch interval needed because SignalR handles it
   });
 
-  // Fetch reservations
-  const { data: reservations = [], isLoading: reservLoading } = useQuery<Reservation[]>({
-    queryKey: ['reservations'],
-    queryFn: async () => (await apiClient.get('/reservation')).data,
+  // Fetch reservations (with server-side pagination)
+  const { data: pagedResult, isLoading: reservLoading } = useQuery({
+    queryKey: ['reservations', page, selectedDate],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.append('page', page.toString());
+      params.append('pageSize', pageSize.toString());
+      params.append('date', selectedDate);
+      
+      const res = await apiClient.get(`/reservation?${params.toString()}`);
+      return res.data;
+    },
     refetchInterval: 30000 // Polling fallback for reservations
   });
+
+  const reservations = pagedResult?.items || [];
+  const totalPages = pagedResult?.totalPages || 0;
+  const totalItems = pagedResult?.totalCount || 0;
 
   const updateStatusMutation = useMutation({
     mutationFn: ({ id, status }: { id: number; status: TableStatus }) =>
@@ -187,10 +202,9 @@ export default function ReservationsPage() {
   }), [tables]);
 
   const todayReservations = useMemo(() => {
-    return reservations
-      .filter(r => new Date(r.reservationTime).toISOString().split('T')[0] === selectedDate && r.status < 3)
-      .sort((a, b) => new Date(a.reservationTime).getTime() - new Date(b.reservationTime).getTime());
-  }, [reservations, selectedDate]);
+    // Backend already filters by date, so we just sort
+    return [...reservations].sort((a, b) => new Date(a.reservationTime).getTime() - new Date(b.reservationTime).getTime());
+  }, [reservations]);
 
   const isLoading = tablesLoading || reservLoading;
 
@@ -385,6 +399,14 @@ export default function ReservationsPage() {
               })}
             </div>
           )}
+
+          <Pagination 
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            totalItems={totalItems}
+            pageSize={pageSize}
+          />
         </motion.div>
       )}
 

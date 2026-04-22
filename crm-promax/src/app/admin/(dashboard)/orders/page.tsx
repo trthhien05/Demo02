@@ -14,6 +14,7 @@ import { useOrderSignalR } from '@/lib/hooks/useOrderSignalR';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Printer } from 'lucide-react';
+import Pagination from '@/components/common/Pagination';
 
 // Maps to .NET Enums
 type OrderStatus = 0 | 1 | 2 | 3 | 4; 
@@ -59,6 +60,8 @@ export default function OrdersPage() {
   const [statusFilter, setStatusFilter] = useState<number | 'all'>('all');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const pageSize = 12;
   
   // Mutations
   const updateStatusMutation = useMutation({
@@ -83,35 +86,28 @@ export default function OrdersPage() {
   // Real-time synchronization
   useOrderSignalR();
 
-  const { data: orders = [], isLoading } = useQuery<Order[]>({
-    queryKey: ['orders'],
-    queryFn: async () => (await apiClient.get('/order')).data,
+  const { data: pagedResult, isLoading } = useQuery({
+    queryKey: ['orders', page, statusFilter, search, selectedDate],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.append('page', page.toString());
+      params.append('pageSize', pageSize.toString());
+      if (statusFilter !== 'all') params.append('status', statusFilter.toString());
+      if (search.trim()) params.append('search', search.trim());
+      if (selectedDate) params.append('date', selectedDate);
+      
+      const res = await apiClient.get(`/order?${params.toString()}`);
+      return res.data;
+    },
     refetchInterval: 30000 // Polling fallback
   });
 
-  const filteredOrders = useMemo(() => {
-    let result = orders;
-    
-    // 1. Date Filter
-    if (selectedDate) {
-      result = result.filter(o => new Date(o.createdAt).toISOString().split('T')[0] === selectedDate);
-    }
+  const orders = pagedResult?.items || [];
+  const totalPages = pagedResult?.totalPages || 0;
+  const totalItems = pagedResult?.totalCount || 0;
 
-    // 2. Status Filter
-    if (statusFilter !== 'all') {
-      result = result.filter(o => o.status === statusFilter);
-    }
-
-    // 3. Search
-    if (search.trim()) {
-      result = result.filter(o => 
-        o.diningTable?.tableNumber.includes(search) || 
-        o.id.toString().includes(search)
-      );
-    }
-
-    return result;
-  }, [orders, search, statusFilter, selectedDate]);
+  // Server-side filtering now, so we just use the data directly
+  const filteredOrders = orders;
 
   return (
     <div className="space-y-8 pb-10">
@@ -316,6 +312,14 @@ export default function OrdersPage() {
             </AnimatePresence>
          </div>
       )}
+
+      <Pagination 
+        currentPage={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+        totalItems={totalItems}
+        pageSize={pageSize}
+      />
 
       {/* The Checkout Glass Modal */}
       <CheckoutModal 

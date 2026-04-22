@@ -5,9 +5,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
    X, Receipt, Clock, User, Hash, 
    Utensils, MapPin, CheckCircle2, 
-   Calendar, CreditCard, ShoppingBag
+   Calendar, CreditCard, ShoppingBag,
+   Download, FileText, Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import apiClient from '@/lib/api-client';
+import { toast } from 'sonner';
 
 interface OrderDetailModalProps {
   isOpen: boolean;
@@ -28,6 +31,29 @@ export default function OrderDetailModal({ isOpen, onClose, order }: OrderDetail
 
   const status = STATUS_CONFIG[order.status] || STATUS_CONFIG[0];
   const date = new Date(order.createdAt);
+  const [isDownloading, setIsDownloading] = React.useState(false);
+
+  const handleDownloadPDF = async () => {
+    if (!order.id) return;
+    try {
+      setIsDownloading(true);
+      const res = await apiClient.get(`/billing/invoice/${order.id}/pdf`, { responseType: 'blob' });
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Invoice_${order.id}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      toast.success("Đã tải hóa đơn PDF thành công!");
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Không thể tải hóa đơn PDF. Vui lòng thử lại sau.");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   return (
     <AnimatePresence>
@@ -129,13 +155,25 @@ export default function OrderDetailModal({ isOpen, onClose, order }: OrderDetail
              )}
           </div>
 
-          {/* Footer Actions */}
-          <div className="p-8 border-t border-white/5 bg-white/[0.02]">
+          <div className="p-8 border-t border-white/5 bg-white/[0.02] flex gap-4">
+             {order.status === 3 && (
+                <button 
+                   onClick={handleDownloadPDF}
+                   disabled={isDownloading}
+                   className="flex-1 py-4 bg-primary hover:bg-primary/90 text-white rounded-2xl font-black uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+                >
+                   {isDownloading ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                   Tải Hóa Đơn (PDF)
+                </button>
+             )}
              <button 
                 onClick={onClose}
-                className="w-full py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl font-black uppercase tracking-widest text-xs transition-all"
+                className={cn(
+                   "py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl font-black uppercase tracking-widest text-xs transition-all px-8",
+                   order.status !== 3 ? "w-full" : "flex-1"
+                )}
              >
-                Đóng cửa sổ
+                Đóng
              </button>
           </div>
         </motion.div>

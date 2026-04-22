@@ -41,7 +41,15 @@ export default function AdminDashboard() {
     return () => clearTimeout(timer);
   }, []);
 
-  // 1. Revenue Stats (dynamic days)
+  // Consolidated Dashboard Data
+  const { data: dashboardData, isLoading: isDashboardLoading } = useQuery({
+    queryKey: ['dashboard-stats', daysFilter],
+    queryFn: async () => {
+      const res = await apiClient.get(`/reports/dashboard?days=${daysFilter}`);
+      return res.data;
+    }
+  });
+
   const { data: revenueStats = [], isLoading: isRevenueLoading } = useQuery({
     queryKey: ['revenue-stats', daysFilter],
     queryFn: async () => {
@@ -50,34 +58,7 @@ export default function AdminDashboard() {
     }
   });
 
-  // 2. Customer Summary
-  const { data: customerSummary, isLoading: isCustomerLoading } = useQuery({
-    queryKey: ['customer-summary'],
-    queryFn: async () => {
-      const res = await apiClient.get('/reports/customer-summary');
-      return res.data;
-    }
-  });
-
-  // 3. Tables
-  const { data: tables = [], isLoading: isTablesLoading } = useQuery({
-    queryKey: ['diningTables'], // shared cache
-    queryFn: async () => {
-      const res = await apiClient.get('/table');
-      return res.data;
-    }
-  });
-
-  // 4. Orders
-  const { data: orders = [], isLoading: isOrdersLoading } = useQuery({
-    queryKey: ['orders-metrics'],
-    queryFn: async () => {
-      const res = await apiClient.get('/order');
-      return res.data;
-    }
-  });
-
-  const isGlobalLoading = isRevenueLoading || isCustomerLoading || isTablesLoading || isOrdersLoading;
+  const isGlobalLoading = isDashboardLoading || isRevenueLoading;
 
   const handleExportRevenue = async () => {
     try {
@@ -97,17 +78,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // Calculate Metrics
-  const activeTablesCount = tables.filter((t: any) => t.status === 'Occupied' || t.status === 'Cleaning').length;
-  const totalTablesCount = tables.length || 1;
-  const todayRevenue = revenueStats.length > 0 ? revenueStats[revenueStats.length - 1].amount : 0;
-  
-  let avgCheck = 0;
-  if (orders.length > 0) {
-    const totalAmount = orders.reduce((sum: number, o: any) => sum + (o.totalAmount || 0), 0);
-    avgCheck = totalAmount / orders.length;
-  }
-
   // Format Recharts data
   const chartData = revenueStats.map((item: any) => ({
     name: new Date(item.date).toLocaleDateString('en-US', { weekday: 'short' }),
@@ -115,10 +85,38 @@ export default function AdminDashboard() {
   }));
 
   const stats = [
-    { label: 'Doanh Thu Hôm Nay', value: `$${todayRevenue.toLocaleString()}`, trend: 'Live', icon: DollarSign, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
-    { label: 'Bàn Hoạt Động', value: `${activeTablesCount}/${totalTablesCount}`, trend: `${Math.round((activeTablesCount/totalTablesCount)*100)}%`, icon: ShoppingCart, color: 'text-primary', bg: 'bg-primary/10' },
-    { label: 'Khách VIP', value: customerSummary?.totalCustomers?.toLocaleString() || '0', trend: 'CRM', icon: Users, color: 'text-blue-400', bg: 'bg-blue-400/10' },
-    { label: 'Hóa Đơn TB', value: `$${avgCheck.toFixed(2)}`, trend: 'Order', icon: TrendingUp, color: 'text-orange-400', bg: 'bg-orange-400/10' },
+    { 
+      label: 'Doanh Thu Hôm Nay', 
+      value: `$${(dashboardData?.todayRevenue || 0).toLocaleString()}`, 
+      trend: `${dashboardData?.revenueGrowth > 0 ? '+' : ''}${dashboardData?.revenueGrowth || 0}%`, 
+      icon: DollarSign, 
+      color: 'text-emerald-400', 
+      bg: 'bg-emerald-400/10' 
+    },
+    { 
+      label: 'Bàn Hoạt Động', 
+      value: `${dashboardData?.activeTables || 0}/${dashboardData?.totalTables || 1}`, 
+      trend: `${Math.round(((dashboardData?.activeTables || 0)/(dashboardData?.totalTables || 1))*100)}%`, 
+      icon: ShoppingCart, 
+      color: 'text-primary', 
+      bg: 'bg-primary/10' 
+    },
+    { 
+      label: 'Khách VIP', 
+      value: dashboardData?.totalCustomers?.toLocaleString() || '0', 
+      trend: 'CRM', 
+      icon: Users, 
+      color: 'text-blue-400', 
+      bg: 'bg-blue-400/10' 
+    },
+    { 
+      label: 'Hóa Đơn TB', 
+      value: `$${(dashboardData?.averageCheck || 0).toFixed(2)}`, 
+      trend: 'Order', 
+      icon: TrendingUp, 
+      color: 'text-orange-400', 
+      bg: 'bg-orange-400/10' 
+    },
   ];
 
   return (
