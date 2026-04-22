@@ -86,7 +86,13 @@ export default function OrdersPage() {
   // Real-time synchronization
   useOrderSignalR();
 
-  const { data: pagedResult, isLoading } = useQuery({
+  const { data: pagedResult, isLoading } = useQuery<{
+    items: Order[];
+    totalCount: number;
+    totalPages: number;
+    page: number;
+    pageSize: number;
+  }>({
     queryKey: ['orders', page, statusFilter, search, selectedDate],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -102,7 +108,7 @@ export default function OrdersPage() {
     refetchInterval: 30000 // Polling fallback
   });
 
-  const orders = pagedResult?.items || [];
+  const orders: Order[] = pagedResult?.items || [];
   const totalPages = pagedResult?.totalPages || 0;
   const totalItems = pagedResult?.totalCount || 0;
 

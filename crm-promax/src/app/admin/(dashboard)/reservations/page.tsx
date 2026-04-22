@@ -146,7 +146,13 @@ export default function ReservationsPage() {
   });
 
   // Fetch reservations (with server-side pagination)
-  const { data: pagedResult, isLoading: reservLoading } = useQuery({
+  const { data: pagedResult, isLoading: reservLoading } = useQuery<{
+    items: Reservation[];
+    totalCount: number;
+    totalPages: number;
+    page: number;
+    pageSize: number;
+  }>({
     queryKey: ['reservations', page, selectedDate],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -160,7 +166,7 @@ export default function ReservationsPage() {
     refetchInterval: 30000 // Polling fallback for reservations
   });
 
-  const reservations = pagedResult?.items || [];
+  const reservations: Reservation[] = pagedResult?.items || [];
   const totalPages = pagedResult?.totalPages || 0;
   const totalItems = pagedResult?.totalCount || 0;
 
