@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { toast } from 'sonner';
+import apiClient from '@/lib/api-client';
 
 const itemSchema = z.object({
   name: z.string().min(2, "Tên món ăn quá ngắn"),
