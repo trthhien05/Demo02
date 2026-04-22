@@ -17,6 +17,7 @@ interface StaffMember {
   phoneNumber: string | null;
   department: string | null;
   createdAt: string;
+  avatarUrl: string | null;
   isActive: boolean;
   isClockedIn: boolean;
 }
@@ -144,8 +145,12 @@ export default function StaffPage() {
                 >
                    <div className="flex items-start justify-between mb-4">
                       <div className="relative">
-                        <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-primary font-black text-2xl group-hover:bg-primary/10 transition-colors">
-                          {member.fullName?.[0] || member.username[0].toUpperCase()}
+                        <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-primary font-black text-2xl group-hover:bg-primary/10 transition-colors overflow-hidden">
+                          {member.avatarUrl ? (
+                            <img src={member.avatarUrl} alt={member.fullName} className="w-full h-full object-cover" />
+                          ) : (
+                            member.fullName?.[0] || member.username[0].toUpperCase()
+                          )}
                         </div>
                         {member.isClockedIn && (
                           <span className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-[#0c0e14] rounded-full animate-pulse" />
@@ -305,8 +310,10 @@ function StaffModal({ isOpen, onClose, initialData }: { isOpen: boolean, onClose
     role: 1,
     email: '',
     phoneNumber: '',
-    department: ''
+    department: '',
+    avatarUrl: ''
   });
+  const [isUploading, setIsUploading] = useState(false);
 
   React.useEffect(() => {
     if (initialData) {
@@ -317,12 +324,39 @@ function StaffModal({ isOpen, onClose, initialData }: { isOpen: boolean, onClose
         role: initialData.role,
         email: initialData.email || '',
         phoneNumber: initialData.phoneNumber || '',
-        department: initialData.department || ''
+        department: initialData.department || '',
+        avatarUrl: initialData.avatarUrl || ''
       });
     } else {
-      setForm({ username: '', password: '', fullName: '', role: 1, email: '', phoneNumber: '', department: '' });
+      setForm({ username: '', password: '', fullName: '', role: 1, email: '', phoneNumber: '', department: '', avatarUrl: '' });
     }
   }, [initialData, isOpen]);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'ml_default');
+
+    try {
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'drpm4i6y6'}/image/upload`, {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      if (data.secure_url) {
+        setForm(prev => ({ ...prev, avatarUrl: data.secure_url }));
+        toast.success('Đã tải ảnh lên thành công');
+      }
+    } catch {
+      toast.error('Lỗi tải ảnh lên');
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const mutation = useMutation({
     mutationFn: (data: any) => initialData 
@@ -357,6 +391,28 @@ function StaffModal({ isOpen, onClose, initialData }: { isOpen: boolean, onClose
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-1">Hệ thống quản trị tài khoản nội bộ</p>
            </div>
            <button onClick={onClose} className="p-3 hover:bg-white/10 rounded-full transition-colors"><X size={20} /></button>
+        </div>
+
+        <div className="px-8 pt-8 flex items-center gap-6">
+            <div className="relative group">
+                <div className="w-24 h-24 rounded-3xl bg-black/40 border border-white/10 flex items-center justify-center text-primary text-3xl font-black shadow-xl overflow-hidden">
+                    {isUploading ? (
+                        <Loader2 className="animate-spin" />
+                    ) : form.avatarUrl ? (
+                        <img src={form.avatarUrl} alt="Avatar Preview" className="w-full h-full object-cover" />
+                    ) : (
+                        form.fullName?.[0] || '?'
+                    )}
+                </div>
+                <label className="absolute -bottom-2 -right-2 p-2 bg-primary text-white rounded-xl cursor-pointer hover:scale-110 transition-transform shadow-lg">
+                    <Camera size={14} />
+                    <input type="file" className="hidden" onChange={handleImageUpload} disabled={isUploading} />
+                </label>
+            </div>
+            <div>
+                <h3 className="text-sm font-black uppercase tracking-widest text-white">{form.fullName || 'Tên nhân sự'}</h3>
+                <p className="text-[10px] font-bold text-muted-foreground">Ảnh đại diện nhân viên (Khuyên dùng 1:1)</p>
+            </div>
         </div>
 
         <form onSubmit={handleSubmit} className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -414,6 +470,17 @@ function StaffModal({ isOpen, onClose, initialData }: { isOpen: boolean, onClose
                    value={form.department} onChange={e => setForm({...form, department: e.target.value})}
                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary/50 outline-none"
                 />
+              </div>
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 block">Số điện thoại</label>
+                <div className="relative">
+                   <Phone size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                   <input 
+                      value={form.phoneNumber} onChange={e => setForm({...form, phoneNumber: e.target.value})}
+                      className="w-full bg-black/40 border border-white/10 rounded-xl pl-12 pr-4 py-3 text-sm focus:border-primary/50 outline-none"
+                      placeholder="09xx..."
+                   />
+                </div>
               </div>
            </div>
 

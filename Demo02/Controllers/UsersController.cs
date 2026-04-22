@@ -126,6 +126,7 @@ public class UsersController : ControllerBase
             Email = request.Email,
             PhoneNumber = request.PhoneNumber,
             Department = request.Department,
+            AvatarUrl = request.AvatarUrl,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -146,6 +147,7 @@ public class UsersController : ControllerBase
         user.Email = request.Email;
         user.PhoneNumber = request.PhoneNumber;
         user.Department = request.Department;
+        user.AvatarUrl = request.AvatarUrl;
         user.IsActive = request.IsActive;
 
         if (!string.IsNullOrEmpty(request.Password))
@@ -190,6 +192,7 @@ public class CreateStaffRequest
     public string? Email { get; set; }
     public string? PhoneNumber { get; set; }
     public string? Department { get; set; }
+    public string? AvatarUrl { get; set; }
 }
 
 public class UpdateStaffRequest
@@ -200,6 +203,7 @@ public class UpdateStaffRequest
     public string? Email { get; set; }
     public string? PhoneNumber { get; set; }
     public string? Department { get; set; }
+    public string? AvatarUrl { get; set; }
     public bool IsActive { get; set; } = true;
 }
 
