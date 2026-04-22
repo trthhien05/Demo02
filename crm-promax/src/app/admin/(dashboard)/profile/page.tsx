@@ -5,9 +5,10 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Lock, Mail, Shield, Save, Loader2, Camera, KeyRound, CheckCircle2, History, Award, Calendar, ExternalLink } from 'lucide-react';
+import { User, Lock, Mail, Shield, Save, Loader2, Camera, KeyRound, CheckCircle2, History, Award, Calendar, ExternalLink, ChevronRight, AlertCircle } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 // --- Schemas ---
 const profileSchema = z.object({
