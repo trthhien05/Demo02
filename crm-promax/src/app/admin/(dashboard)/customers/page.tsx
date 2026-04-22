@@ -425,7 +425,13 @@ export default function CustomersPage() {
   const pageSize = 15;
   const queryClient = useQueryClient();
 
-  const { data: pagedResult, isLoading } = useQuery({
+  const { data: pagedResult, isLoading } = useQuery<{
+    items: Customer[];
+    totalCount: number;
+    totalPages: number;
+    page: number;
+    pageSize: number;
+  }>({
     queryKey: ['customers', page, tierFilter, search],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -439,7 +445,7 @@ export default function CustomersPage() {
     },
   });
 
-  const customers = pagedResult?.items || [];
+  const customers: Customer[] = pagedResult?.items || [];
   const totalPages = pagedResult?.totalPages || 0;
   const totalItems = pagedResult?.totalCount || 0;
 
