@@ -27,21 +27,22 @@ import { useRouter } from 'next/navigation';
 import apiClient from '@/lib/api-client';
 import { useAuthStore } from '@/lib/auth-store';
 import { toast } from 'sonner';
+import { useQuery } from '@tanstack/react-query';
 
 const navItems = [
-  { name: 'Tổng Quan', icon: LayoutDashboard, href: '/admin' },
-  { name: 'Đơn Hàng', icon: ShoppingCart, href: '/admin/orders' },
-  { name: 'Nhà Bếp', icon: ChefHat, href: '/admin/kitchen' },
-  { name: 'Phân Tích', icon: BarChart3, href: '/admin/reports' },
-  { name: 'Nhật Ký', icon: History, href: '/admin/logs' },
-  { name: 'Đặt Bàn', icon: CalendarDays, href: '/admin/reservations' },
-  { name: 'Thực Đơn', icon: UtensilsCrossed, href: '/admin/menu' },
-  { name: 'Kho Hàng', icon: Package, href: '/admin/inventory' },
-  { name: 'Khách Hàng', icon: Users, href: '/admin/customers' },
-  { name: 'Khuyến Mãi', icon: Tag, href: '/admin/promotions' },
-  { name: 'Nhân Sự', icon: ShieldCheck, href: '/admin/staff' },
-  { name: 'Cài Đặt', icon: Settings2, href: '/admin/settings' },
-  { name: 'Tài Khoản', icon: Settings, href: '/admin/profile' },
+  { name: 'Tổng Quan', icon: LayoutDashboard, href: '/admin', roles: [0, 1, 2, 3, 4] },
+  { name: 'Đơn Hàng', icon: ShoppingCart, href: '/admin/orders', roles: [0, 1, 2, 3, 4] },
+  { name: 'Nhà Bếp', icon: ChefHat, href: '/admin/kitchen', roles: [0, 3] },
+  { name: 'Phân Tích', icon: BarChart3, href: '/admin/reports', roles: [0] },
+  { name: 'Nhật Ký', icon: History, href: '/admin/logs', roles: [0] },
+  { name: 'Đặt Bàn', icon: CalendarDays, href: '/admin/reservations', roles: [0, 2, 4] },
+  { name: 'Thực Đơn', icon: UtensilsCrossed, href: '/admin/menu', roles: [0, 3] },
+  { name: 'Kho Hàng', icon: Package, href: '/admin/inventory', roles: [0, 3] },
+  { name: 'Khách Hàng', icon: Users, href: '/admin/customers', roles: [0, 2] },
+  { name: 'Khuyến Mãi', icon: Tag, href: '/admin/promotions', roles: [0] },
+  { name: 'Nhân Sự', icon: ShieldCheck, href: '/admin/staff', roles: [0, 3] },
+  { name: 'Cài Đặt', icon: Settings2, href: '/admin/settings', roles: [0] },
+  { name: 'Tài Khoản', icon: Settings, href: '/admin/profile', roles: [0, 1, 2, 3, 4] },
 ];
 
 export default function Sidebar() {
@@ -50,6 +51,13 @@ export default function Sidebar() {
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
   const clearAuth = useAuthStore((state) => state.clearAuth);
+
+  const { data: profile } = useQuery({
+    queryKey: ['profile'],
+    queryFn: async () => (await apiClient.get('/users/profile')).data
+  });
+
+  const userRole = profile?.role ?? -1;
 
   const handleLogout = async () => {
     if (isLoggingOut) return;
@@ -101,7 +109,7 @@ export default function Sidebar() {
 
         {/* Navigation */}
         <nav className="flex-1 space-y-2">
-          {navItems.map((item) => {
+          {navItems.filter(item => item.roles.includes(userRole)).map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link key={item.href} href={item.href} prefetch={false}>

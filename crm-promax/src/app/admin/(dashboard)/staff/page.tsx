@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import RoleGuard from '@/components/auth/RoleGuard';
 
 interface StaffMember {
   id: number;
@@ -41,6 +42,11 @@ export default function StaffPage() {
   const { data: staffList = [], isLoading } = useQuery<StaffMember[]>({
     queryKey: ['staff'],
     queryFn: async () => (await apiClient.get('/users')).data
+  });
+
+  const { data: profile } = useQuery({
+    queryKey: ['profile'],
+    queryFn: async () => (await apiClient.get('/users/profile')).data
   });
 
   const deleteMutation = useMutation({
@@ -92,7 +98,8 @@ export default function StaffPage() {
   );
 
   return (
-    <div className="space-y-8 pb-10">
+    <RoleGuard allowedRoles={[0, 3]}>
+      <div className="space-y-8 pb-10">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
         <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
           <span className="text-primary font-bold text-xs uppercase tracking-[0.2em]">Administrative Hub</span>
@@ -108,20 +115,25 @@ export default function StaffPage() {
               className="pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-2xl outline-none focus:border-primary/50 transition-colors focus:bg-white/10 w-[250px]"
             />
           </div>
-          <motion.button 
-            onClick={exportStaffCSV}
-            whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-            className="px-4 py-3 bg-white/5 border border-white/10 rounded-2xl font-bold flex items-center gap-2 hover:bg-white/10 transition-colors"
-          >
-            <Download size={18} /> Xuất CSV
-          </motion.button>
-          <motion.button 
-            onClick={() => { setEditingStaff(null); setIsModalOpen(true); }}
-            whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-            className="px-6 py-3 bg-primary text-primary-foreground rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-primary/20"
-          >
-            <Plus size={18} /> Thêm Nhân Viên
-          </motion.button>
+          </div>
+          {profile?.role === 0 && (
+            <motion.button 
+              onClick={exportStaffCSV}
+              whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+              className="px-4 py-3 bg-white/5 border border-white/10 rounded-2xl font-bold flex items-center gap-2 hover:bg-white/10 transition-colors"
+            >
+              <Download size={18} /> Xuất CSV
+            </motion.button>
+          )}
+          {profile?.role === 0 && (
+            <motion.button 
+              onClick={() => { setEditingStaff(null); setIsModalOpen(true); }}
+              whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+              className="px-6 py-3 bg-primary text-primary-foreground rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-primary/20"
+            >
+              <Plus size={18} /> Thêm Nhân Viên
+            </motion.button>
+          )}
         </div>
       </div>
 
@@ -188,34 +200,36 @@ export default function StaffPage() {
                       </div>
                    </div>
 
-                   <div className="flex items-center gap-2 mt-6 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button 
-                        onClick={() => { setEditingStaff(member); setIsModalOpen(true); }}
-                        className="flex-1 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-bold uppercase transition-colors flex items-center justify-center gap-2"
-                      >
-                        <Edit3 size={14} /> Chỉnh sửa
-                      </button>
-                      <button 
-                        onClick={() => { setShiftTargetId(member.id); setIsShiftLogsOpen(true); }}
-                        className="p-2 bg-white/5 hover:bg-primary/20 hover:text-primary rounded-xl transition-colors"
-                        title="Lịch sử chấm công"
-                      >
-                         <Clock size={16} />
-                      </button>
-                      <button 
-                         onClick={() => toggleActiveMutation.mutate({ id: member.id, isActive: member.isActive })}
-                         className={cn("p-2 rounded-xl transition-colors", member.isActive ? "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20" : "bg-red-500/10 text-red-400 hover:bg-red-500/20")}
-                         title={member.isActive ? "Đang hoạt động - Nhấn để khóa" : "Đã khóa - Nhấn để mở"}
-                      >
-                         <ShieldCheck size={16} />
-                      </button>
-                      <button 
-                        onClick={() => { if(confirm('Chắc chắn xóa vĩnh viễn?')) deleteMutation.mutate(member.id); }}
-                        className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl transition-colors"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                   </div>
+                   {profile?.role === 0 && (
+                     <div className="flex items-center gap-2 mt-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button 
+                          onClick={() => { setEditingStaff(member); setIsModalOpen(true); }}
+                          className="flex-1 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-bold uppercase transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Edit3 size={14} /> Chỉnh sửa
+                        </button>
+                        <button 
+                          onClick={() => { setShiftTargetId(member.id); setIsShiftLogsOpen(true); }}
+                          className="p-2 bg-white/5 hover:bg-primary/20 hover:text-primary rounded-xl transition-colors"
+                          title="Lịch sử chấm công"
+                        >
+                           <Clock size={16} />
+                        </button>
+                        <button 
+                           onClick={() => toggleActiveMutation.mutate({ id: member.id, isActive: member.isActive })}
+                           className={cn("p-2 rounded-xl transition-colors", member.isActive ? "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20" : "bg-red-500/10 text-red-400 hover:bg-red-500/20")}
+                           title={member.isActive ? "Đang hoạt động - Nhấn để khóa" : "Đã khóa - Nhấn để mở"}
+                        >
+                           <ShieldCheck size={16} />
+                        </button>
+                        <button 
+                          onClick={() => { if(confirm('Chắc chắn xóa vĩnh viễn?')) deleteMutation.mutate(member.id); }}
+                          className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                     </div>
+                   )}
                 </motion.div>
               );
             })}
@@ -235,6 +249,7 @@ export default function StaffPage() {
            userId={shiftTargetId} 
         />
     </div>
+    </RoleGuard>
   );
 }
 

@@ -24,25 +24,30 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet]
-    [Authorize(Roles = "Admin")] // Restrict listing to Admins only
     public async Task<IActionResult> GetAllStaff()
     {
-        var users = await _context.Users
+        var isAdmin = User.IsInRole("Admin");
+        
+        var query = _context.Users.AsQueryable();
+        
+        var users = await query
             .Select(u => new 
             {
                 u.Id,
                 u.Username,
                 u.FullName,
                 u.Role,
-                u.Email,
-                u.PhoneNumber,
-                u.Department,
                 u.AvatarUrl,
-                u.CreatedAt,
+                // Only return sensitive info if Admin
+                Email = isAdmin ? u.Email : null,
+                PhoneNumber = isAdmin ? u.PhoneNumber : null,
+                Department = isAdmin ? u.Department : null,
+                CreatedAt = isAdmin ? (DateTime?)u.CreatedAt : null,
                 u.IsActive,
                 IsClockedIn = _context.Shifts.Any(s => s.UserId == u.Id && s.EndTime == null)
             })
             .ToListAsync();
+            
         return Ok(users);
     }
 
