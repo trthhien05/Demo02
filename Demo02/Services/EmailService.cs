@@ -22,7 +22,7 @@ public class EmailService : IEmailService
         var settings = _configuration.GetSection("EmailSettings");
         
         var email = new MimeMessage();
-        email.From.Add(new MailboxAddress(settings["SenderName"], settings["SenderEmail"]));
+        email.From.Add(new MailboxAddress(settings["SenderName"] ?? "RMS System", settings["SenderEmail"] ?? "no-reply@promax.com"));
         email.To.Add(MailboxAddress.Parse(toEmail));
         email.Subject = subject;
         email.Body = new TextPart(TextFormat.Html) { Text = htmlMessage };
@@ -30,11 +30,13 @@ public class EmailService : IEmailService
         using var smtp = new SmtpClient();
         try
         {
-            var server = settings["SmtpServer"];
-            var port = int.Parse(settings["Port"]!);
-            var user = settings["SenderEmail"];
+            var server = settings["SmtpServer"] ?? "localhost";
+            var portString = settings["Port"] ?? "587";
+            var port = int.Parse(portString);
+            var user = settings["SenderEmail"] ?? "";
             var pass = Environment.GetEnvironmentVariable("EMAIL_APP_PASSWORD") 
-                       ?? settings["AppPassword"]?.Replace(" ", "");
+                       ?? settings["AppPassword"]?.Replace(" ", "") 
+                       ?? "";
 
             await smtp.ConnectAsync(server, port, SecureSocketOptions.StartTls);
             await smtp.AuthenticateAsync(user, pass);

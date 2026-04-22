@@ -284,7 +284,7 @@ public static class DataSeeder
                         VatAmount = total * 0.08m,
                         FinalAmount = total,
                         IssuedAt = order.CreatedAt,
-                        Status = (orderStatus == OrderStatus.Completed) ? InvoiceStatus.Paid : InvoiceStatus.Pending,
+                        Status = (orderStatus == OrderStatus.Completed) ? InvoiceStatus.Paid : InvoiceStatus.Unpaid,
                         PaymentMethod = (PaymentMethod)random.Next(0, 4)
                     };
                     context.Invoices.Add(invoice);

@@ -177,7 +177,7 @@ public class ReportsController : ControllerBase
     public async Task<IActionResult> GetTopSellingItems()
     {
         var topItems = await _context.OrderItems
-            .GroupBy(oi => oi.MenuItem.Name)
+            .GroupBy(oi => oi.MenuItem != null ? oi.MenuItem.Name : "Unknown")
             .Select(g => new { ItemName = g.Key, Quantity = g.Sum(oi => oi.Quantity) })
             .OrderByDescending(x => x.Quantity)
             .Take(5)
@@ -200,7 +200,7 @@ public class ReportsController : ControllerBase
 
         foreach (var s in shifts)
         {
-            csv.AppendLine($"{s.User.FullName},{s.StartTime},{s.EndTime},{s.Note}");
+            csv.AppendLine($"{s.User?.FullName ?? "N/A"},{s.StartTime},{s.EndTime},{s.Note}");
         }
 
         return File(System.Text.Encoding.UTF8.GetBytes(csv.ToString()), "text/csv", "ShiftsReport.csv");
@@ -257,7 +257,7 @@ public class ReportsController : ControllerBase
         var categoryData = await _context.OrderItems
             .Include(oi => oi.MenuItem)
             .ThenInclude(mi => mi.Category)
-            .GroupBy(oi => oi.MenuItem.Category.Name)
+            .GroupBy(oi => oi.MenuItem != null && oi.MenuItem.Category != null ? oi.MenuItem.Category.Name : "Other")
             .Select(g => new { Category = g.Key, Revenue = g.Sum(oi => oi.Quantity * oi.UnitPrice) })
             .OrderByDescending(x => x.Revenue)
             .ToListAsync();
@@ -269,9 +269,9 @@ public class ReportsController : ControllerBase
     public async Task<IActionResult> GetTopSpenders()
     {
         var spenders = await _context.Invoices
-            .Where(i => i.Status == InvoiceStatus.Paid && i.CustomerId != null)
+            .Where(i => i.Status == InvoiceStatus.Paid && i.CustomerId != null && i.Customer != null)
             .Include(i => i.Customer)
-            .GroupBy(i => new { i.CustomerId, i.Customer.FullName })
+            .GroupBy(i => new { i.CustomerId, FullName = i.Customer!.FullName })
             .Select(g => new { 
                 CustomerId = g.Key.CustomerId, 
                 Name = g.Key.FullName, 

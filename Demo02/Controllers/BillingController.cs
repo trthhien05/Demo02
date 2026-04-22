@@ -74,7 +74,10 @@ public class BillingController : ControllerBase
 
             // 2. Cập nhật trạng thái đơn hàng và bàn
             order.Status = OrderStatus.Completed;
-            order.DiningTable.Status = TableStatus.Available;
+            if (order.DiningTable != null)
+            {
+                order.DiningTable.Status = TableStatus.Available;
+            }
 
             await _context.SaveChangesAsync();
 
