@@ -17,6 +17,7 @@ public class BillingController : ControllerBase
     private readonly IInventoryService _inventoryService;
     private readonly IHubContext<NotificationHub> _hubContext;
     private readonly IPdfService _pdfService;
+    private readonly ILoyaltyService _loyaltyService;
 
     public BillingController(AppDbContext context, ILoyaltyService loyaltyService, IInventoryService inventoryService, IHubContext<NotificationHub> hubContext, IPdfService pdfService)
     {

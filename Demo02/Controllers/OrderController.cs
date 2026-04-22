@@ -42,7 +42,7 @@ public class OrderController : ControllerBase
 
         // Filters
         if (status.HasValue)
-            query = query.Where(o => o.status == status.Value);
+            query = query.Where(o => o.Status == status.Value);
 
         if (!string.IsNullOrEmpty(search))
             query = query.Where(o => o.Id.ToString().Contains(search) || (o.DiningTable != null && o.DiningTable.TableNumber.Contains(search)));

@@ -102,7 +102,7 @@ public class AuthController : ControllerBase
     [HttpPost("reset-password")]
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
     {
-        var result = await _authService.ResetPasswordAsync(request.Token, request.NewPassword);
+        var result = await _authService.ResetPasswordAsync(request.Token, request.Password);
         if (!result)
         {
             return BadRequest(new { Message = "Mã xác nhận không hợp lệ hoặc đã hết hạn." });

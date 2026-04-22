@@ -119,9 +119,9 @@ builder.Services.AddRateLimiter(options =>
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 });
 
-// Add services to the container.
+// 8. Health Checks
 builder.Services.AddHealthChecks()
-    .AddDbContextCheck<AppDbContext>("database");
+    .AddDbContextCheck<AppDbContext>();
 
 builder.Services.AddMemoryCache();
 builder.Services.AddResponseCaching();

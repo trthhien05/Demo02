@@ -32,7 +32,7 @@ public class PdfService : IPdfService
         if (invoice == null) throw new Exception("Không tìm thấy hóa đơn");
 
         var settings = await _context.RestaurantSettings.FirstOrDefaultAsync();
-        var restaurantName = settings?.RestaurantName ?? "PROMAX RESTAURANT";
+        var restaurantName = settings?.Name ?? "PROMAX RESTAURANT";
         var address = settings?.Address ?? "123 Street, City";
         var phoneNumber = settings?.PhoneNumber ?? "0123456789";
 
