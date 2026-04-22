@@ -230,15 +230,15 @@ public static class DataSeeder
         // Seed Orders and Invoices for the last 30 days
         for (int i = 30; i >= 0; i--)
         {
-            var date = DateTime.UtcNow.AddDays(-i);
-            int ordersToday = random.Next(3, 8); // 3-7 orders per day
+            var date = DateTime.UtcNow.Date.AddDays(-i);
+            int ordersToday = random.Next(4, 10); // 4-9 orders per day
 
             for (int k = 0; k < ordersToday; k++)
             {
                 var customer = customers[random.Next(customers.Count)];
                 var table = tables[random.Next(tables.Count)];
                 
-                // Tạo 1-4 món ăn ngẫu nhiên cho mỗi đơn hàng
+                // 1-4 random menu items
                 var itemsCount = random.Next(1, 5);
                 var orderItems = new List<OrderItem>();
                 decimal total = 0;
@@ -254,29 +254,41 @@ public static class DataSeeder
                     total += mi.Price * qty;
                 }
 
+                // If it's today, some orders should be ACTIVE for the Kitchen/Dashboard view
+                OrderStatus orderStatus = OrderStatus.Completed;
+                if (i == 0 && k < 3) // First 3 orders today are active
+                {
+                    orderStatus = (OrderStatus)random.Next(0, 3); // Pending, Preparing, or Served
+                    table.Status = TableStatus.Occupied;
+                }
+
                 var order = new Order
                 {
                     DiningTableId = table.Id,
-                    Status = OrderStatus.Completed,
+                    Status = orderStatus,
                     TotalAmount = total,
-                    CreatedAt = date.AddHours(random.Next(11, 22)),
+                    CreatedAt = date.AddHours(random.Next(8, 22)),
                     OrderItems = orderItems
                 };
                 context.Orders.Add(order);
                 context.SaveChanges();
 
-                var invoice = new Invoice
+                // Only create Invoices for Completed orders
+                if (orderStatus == OrderStatus.Completed || orderStatus == OrderStatus.Served)
                 {
-                    OrderId = order.Id,
-                    CustomerId = customer.Id,
-                    Subtotal = total * 0.92m,
-                    VatAmount = total * 0.08m,
-                    FinalAmount = total,
-                    IssuedAt = order.CreatedAt,
-                    Status = InvoiceStatus.Paid,
-                    PaymentMethod = (PaymentMethod)random.Next(0, 4)
-                };
-                context.Invoices.Add(invoice);
+                    var invoice = new Invoice
+                    {
+                        OrderId = order.Id,
+                        CustomerId = customer.Id,
+                        Subtotal = total * 0.92m,
+                        VatAmount = total * 0.08m,
+                        FinalAmount = total,
+                        IssuedAt = order.CreatedAt,
+                        Status = (orderStatus == OrderStatus.Completed) ? InvoiceStatus.Paid : InvoiceStatus.Pending,
+                        PaymentMethod = (PaymentMethod)random.Next(0, 4)
+                    };
+                    context.Invoices.Add(invoice);
+                }
             }
         }
         context.SaveChanges();

@@ -25,35 +25,51 @@ public class ReportsController : ControllerBase
     public async Task<IActionResult> GetDashboardStats()
     {
         var today = DateTime.UtcNow.Date;
+        var yesterday = today.AddDays(-1);
         var firstDayOfMonth = new DateTime(today.Year, today.Month, 1, 0, 0, 0, DateTimeKind.Utc);
 
+        // 1. Revenue & Growth
         var todayRevenue = await _context.Invoices
             .Where(i => i.Status == InvoiceStatus.Paid && i.IssuedAt >= today)
             .SumAsync(i => i.FinalAmount);
 
+        var yesterdayRevenue = await _context.Invoices
+            .Where(i => i.Status == InvoiceStatus.Paid && i.IssuedAt >= yesterday && i.IssuedAt < today)
+            .SumAsync(i => i.FinalAmount);
+
+        double revenueGrowth = 0;
+        if (yesterdayRevenue > 0)
+        {
+            revenueGrowth = (double)((todayRevenue - yesterdayRevenue) / yesterdayRevenue * 100);
+        }
+
+        // 2. Tables
+        var totalTables = await _context.DiningTables.CountAsync();
+        var activeTables = await _context.DiningTables.CountAsync(t => t.Status == TableStatus.Occupied);
+
+        // 3. Customers
+        var totalCustomers = await _context.Customers.CountAsync();
+        
+        // 4. Orders
         var activeOrdersCount = await _context.Orders
             .CountAsync(o => o.Status != OrderStatus.Completed && o.Status != OrderStatus.Cancelled);
 
-        var availableTablesCount = await _context.DiningTables
-            .CountAsync(t => t.Status == TableStatus.Available);
-
-        var todayReservationsCount = await _context.Reservations
-            .CountAsync(r => r.Status != ReservationStatus.Cancelled && r.ReservationTime >= today && r.ReservationTime < today.AddDays(1));
-
-        var lowStockAlertsCount = await _context.InventoryItems
-            .CountAsync(i => i.StockQuantity <= i.MinStockLevel);
-
-        var newCustomersThisMonthCount = await _context.Customers
-            .CountAsync(c => c.CreatedAt >= firstDayOfMonth);
+        // 5. Average Check (Total Revenue / Total Invoices)
+        var totalLifetimeRevenue = await _context.Invoices.Where(i => i.Status == InvoiceStatus.Paid).SumAsync(i => i.FinalAmount);
+        var totalInvoices = await _context.Invoices.CountAsync(i => i.Status == InvoiceStatus.Paid);
+        decimal averageCheck = totalInvoices > 0 ? totalLifetimeRevenue / totalInvoices : 0;
 
         return Ok(new
         {
             TodayRevenue = todayRevenue,
+            RevenueGrowth = Math.Round(revenueGrowth, 1),
+            ActiveTables = activeTables,
+            TotalTables = totalTables,
+            TotalCustomers = totalCustomers,
             ActiveOrders = activeOrdersCount,
-            AvailableTables = availableTablesCount,
-            TodayReservations = todayReservationsCount,
-            LowStockAlerts = lowStockAlertsCount,
-            NewCustomersThisMonth = newCustomersThisMonthCount
+            AverageCheck = averageCheck,
+            TodayReservations = await _context.Reservations.CountAsync(r => r.ReservationTime >= today && r.ReservationTime < today.AddDays(1)),
+            LowStockAlerts = await _context.InventoryItems.CountAsync(i => i.StockQuantity <= i.MinStockLevel)
         });
     }
 
