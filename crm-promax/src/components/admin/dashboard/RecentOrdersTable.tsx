@@ -26,7 +26,11 @@ const statusStyles: Record<number, { label: string, css: string }> = {
 };
 
 export default function RecentOrdersTable() {
-  const { data: pagedResult, isLoading } = useQuery({
+  const { data: pagedResult, isLoading } = useQuery<{
+    items: Order[];
+    totalCount: number;
+    totalPages: number;
+  }>({
     queryKey: ['live-feed-orders'],
     queryFn: async () => {
       const res = await apiClient.get('/order');
@@ -35,7 +39,7 @@ export default function RecentOrdersTable() {
     refetchInterval: 15000 // Poll every 15s to keep dashboard alive
   });
 
-  const orders = pagedResult?.items || [];
+  const orders: Order[] = pagedResult?.items || [];
   const recentOrders = orders.slice(0, 5); // Take top 5
 
   return (
