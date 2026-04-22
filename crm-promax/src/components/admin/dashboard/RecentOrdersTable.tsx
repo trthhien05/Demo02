@@ -26,7 +26,7 @@ const statusStyles: Record<number, { label: string, css: string }> = {
 };
 
 export default function RecentOrdersTable() {
-  const { data: orders = [], isLoading } = useQuery<Order[]>({
+  const { data: pagedResult, isLoading } = useQuery({
     queryKey: ['live-feed-orders'],
     queryFn: async () => {
       const res = await apiClient.get('/order');
@@ -35,6 +35,7 @@ export default function RecentOrdersTable() {
     refetchInterval: 15000 // Poll every 15s to keep dashboard alive
   });
 
+  const orders = pagedResult?.items || [];
   const recentOrders = orders.slice(0, 5); // Take top 5
 
   return (

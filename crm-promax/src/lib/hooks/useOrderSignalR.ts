@@ -10,8 +10,12 @@ export function useOrderSignalR(onEvent?: (event: string, ...args: any[]) => voi
   const connectionRef = useRef<signalR.HubConnection | null>(null);
 
   useEffect(() => {
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+    // SignalR Hub is at /notificationHub, usually API_BASE ends with /api
+    const hubUrl = API_BASE.replace(/\/api$/, '') + '/notificationHub';
+    
     const connection = new signalR.HubConnectionBuilder()
-      .withUrl('/notificationHub')
+      .withUrl(hubUrl || '/notificationHub')
       .withAutomaticReconnect()
       .configureLogging(signalR.LogLevel.Warning)
       .build();

@@ -78,11 +78,14 @@ export default function AdminDashboard() {
     }
   };
 
-  // Format Recharts data
-  const chartData = revenueStats.map((item: any) => ({
-    name: new Date(item.date).toLocaleDateString('en-US', { weekday: 'short' }),
-    revenue: item.amount,
-  }));
+  // Format Recharts data (with safety check)
+  const chartData = React.useMemo(() => {
+    if (!Array.isArray(revenueStats)) return [];
+    return revenueStats.map((item: any) => ({
+      name: new Date(item.date).toLocaleDateString('en-US', { weekday: 'short' }),
+      revenue: item.amount,
+    }));
+  }, [revenueStats]);
 
   const stats = [
     { 
