@@ -34,6 +34,14 @@ const passwordSchema = z.object({
 });
 type PasswordFormValues = z.infer<typeof passwordSchema>;
 
+const ROLE_MAP: Record<number, { label: string, color: string }> = {
+  0: { label: 'Quản Trị Viên', color: 'bg-amber-400 text-black border-amber-500' },
+  1: { label: 'Nhân Viên', color: 'bg-blue-500 text-white border-white/5' },
+  2: { label: 'Thu Ngân', color: 'bg-emerald-500 text-white border-white/5' },
+  3: { label: 'Bếp Trưởng', color: 'bg-orange-500 text-white border-white/5' },
+  4: { label: 'Phục Vụ', color: 'bg-violet-500 text-white border-white/5' },
+};
+
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<'general' | 'security' | 'activity'>('general');
   const [userData, setUserData] = useState<any>(null);
@@ -54,15 +62,15 @@ export default function ProfilePage() {
       const res = await apiClient.get('/users/profile');
       setUserData(res.data);
       profileForm.reset({
-        fullName: res.data.FullName,
-        email: res.data.Email,
-        phoneNumber: res.data.PhoneNumber ?? '',
-        dateOfBirth: res.data.DateOfBirth ? res.data.DateOfBirth.split('T')[0] : '',
-        gender: res.data.Gender ?? '',
-        address: res.data.Address ?? '',
-        department: res.data.Department ?? '',
-        bio: res.data.Bio ?? '',
-        avatarUrl: res.data.AvatarUrl ?? '',
+        fullName: res.data.fullName,
+        email: res.data.email,
+        phoneNumber: res.data.phoneNumber ?? '',
+        dateOfBirth: res.data.dateOfBirth ? res.data.dateOfBirth.split('T')[0] : '',
+        gender: res.data.gender ?? '',
+        address: res.data.address ?? '',
+        department: res.data.department ?? '',
+        bio: res.data.bio ?? '',
+        avatarUrl: res.data.avatarUrl ?? '',
       });
     } catch (error) {
       toast.error("Không thể tải thông tin hồ sơ.");
@@ -185,11 +193,11 @@ export default function ProfilePage() {
                     </div>
                 )}
                 
-                {userData?.AvatarUrl ? (
-                    <img src={userData.AvatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                {userData?.avatarUrl ? (
+                    <img src={userData.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
                     <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-neutral-800 to-black">
-                       {userData?.FullName?.charAt(0) || 'U'}
+                       {userData?.fullName?.charAt(0) || 'U'}
                     </div>
                 )}
                 
@@ -203,14 +211,15 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <h2 className="text-2xl font-black text-white mb-1 tracking-tight">{userData?.FullName || 'Anonymous'}</h2>
-            <p className="text-xs text-primary font-black uppercase tracking-widest mb-6">@{userData?.Username}</p>
+            <h2 className="text-2xl font-black text-white mb-1 tracking-tight">{userData?.fullName || 'Anonymous'}</h2>
+            <p className="text-xs text-primary font-black uppercase tracking-widest mb-6">@{userData?.username}</p>
             
-            <div className={`flex items-center gap-2 px-5 py-2 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] mb-10 border shadow-lg ${
-              userData?.Role === 'Admin' ? "bg-amber-400 text-black border-amber-500" : "bg-neutral-800 text-white border-white/5"
-            }`}>
-               {userData?.Role === 'Admin' ? <Award size={14} /> : <Shield size={14} />}
-               {userData?.Role || 'GUEST'}
+            <div className={cn(
+              "flex items-center gap-2 px-5 py-2 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] mb-10 border shadow-lg",
+              ROLE_MAP[userData?.role]?.color || "bg-neutral-800 text-white border-white/5"
+            )}>
+               {userData?.role === 0 ? <Award size={14} /> : <Shield size={14} />}
+               {ROLE_MAP[userData?.role]?.label || 'GUEST'}
             </div>
 
             <div className="grid grid-cols-2 w-full gap-3 pt-8 border-t border-white/5">
