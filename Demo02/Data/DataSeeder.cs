@@ -118,10 +118,10 @@ public static class DataSeeder
 
         var users = new[]
         {
-            new User { Username = "admin", FullName = "VVIP Administrator", Email = "admin@promax.com", Role = UserRole.Admin, PasswordHash = HashPassword("123456") },
-            new User { Username = "waiter", FullName = "Nhân viên Phục vụ", Email = "waiter@promax.com", Role = UserRole.Waiter, PasswordHash = HashPassword("123456") },
-            new User { Username = "kitchen", FullName = "Đầu bếp Chính", Email = "kitchen@promax.com", Role = UserRole.Kitchen, PasswordHash = HashPassword("123456") },
-            new User { Username = "cashier", FullName = "Thu ngân (Cửa hàng)", Email = "cashier@promax.com", Role = UserRole.Cashier, PasswordHash = HashPassword("123456") }
+            new User { Username = "admin", PasswordHash = HashPassword("admin123"), FullName = "Trần Thành Hiển", Role = UserRole.Admin, Email = "doanvanhieu179@gmail.com", PhoneNumber = "0869165351", AvatarUrl = "https://res.cloudinary.com/drpm4i6y6/image/upload/v1713801234/avatars/admin.png" },
+            new User { Username = "kitchen", PasswordHash = HashPassword("kitchen123"), FullName = "Huỳnh Ngọc Thạch", Role = UserRole.Kitchen, Email = "chonguathach@gmail.com", PhoneNumber = "0345660934", AvatarUrl = "https://res.cloudinary.com/drpm4i6y6/image/upload/v1713801235/avatars/chef.png" },
+            new User { Username = "cashier", PasswordHash = HashPassword("cashier123"), FullName = "Nguyễn Thị Cẩm Tú", Role = UserRole.Cashier, Email = "nguyenthicamtu332@gmail.com", PhoneNumber = "0355051308", AvatarUrl = "https://res.cloudinary.com/drpm4i6y6/image/upload/v1713801236/avatars/cashier.png" },
+            new User { Username = "waiter", PasswordHash = HashPassword("waiter123"), FullName = "Nguyễn Anh Tính", Role = UserRole.Waiter, Email = "anhtinh@gmail.com", PhoneNumber = "0375335833", AvatarUrl = "https://res.cloudinary.com/drpm4i6y6/image/upload/v1713801237/avatars/waiter.png" }
         };
 
         context.Users.AddRange(users);

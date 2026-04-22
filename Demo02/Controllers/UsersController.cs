@@ -37,6 +37,7 @@ public class UsersController : ControllerBase
                 u.Email,
                 u.PhoneNumber,
                 u.Department,
+                u.AvatarUrl,
                 u.CreatedAt,
                 u.IsActive,
                 IsClockedIn = _context.Shifts.Any(s => s.UserId == u.Id && s.EndTime == null)
