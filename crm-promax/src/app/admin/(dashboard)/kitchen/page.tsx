@@ -57,17 +57,17 @@ export default function KitchenPage() {
     }
   }, 'Kitchen');
 
-  const { data: pagedResult, isLoading } = useQuery({
+  const { data: pagedResult, isLoading } = useQuery<Order[]>({
     queryKey: ['orders'],
     queryFn: async () => {
       const res = await apiClient.get('/order');
       return res.data;
     },
-    select: (data) => {
+    select: (data: any) => {
         const items = data.items || [];
         return items
-          .filter((o: any) => o.status < 3)
-          .sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+          .filter((o: Order) => o.status < 3)
+          .sort((a: Order, b: Order) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
     },
     refetchInterval: 30000 // Short polling as fallback
   });
@@ -127,11 +127,11 @@ export default function KitchenPage() {
              Báo hết món
           </button>
           <div className="px-4 py-2 text-center border-l border-white/5">
-             <div className="text-2xl font-black text-yellow-400">{orders.filter(o => o.status === 0).length}</div>
+             <div className="text-2xl font-black text-yellow-400">{orders.filter((o: Order) => o.status === 0).length}</div>
              <div className="text-[10px] font-bold uppercase text-muted-foreground">Đang chờ</div>
           </div>
           <div className="px-4 py-2 text-center">
-             <div className="text-2xl font-black text-primary">{orders.filter(o => o.status === 1).length}</div>
+             <div className="text-2xl font-black text-primary">{orders.filter((o: Order) => o.status === 1).length}</div>
              <div className="text-[10px] font-bold uppercase text-muted-foreground">Đang nấu</div>
           </div>
         </div>
