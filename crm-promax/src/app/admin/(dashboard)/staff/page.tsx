@@ -115,7 +115,6 @@ export default function StaffPage() {
               className="pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-2xl outline-none focus:border-primary/50 transition-colors focus:bg-white/10 w-[250px]"
             />
           </div>
-          </div>
           {profile?.role === 0 && (
             <motion.button 
               onClick={exportStaffCSV}
