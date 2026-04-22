@@ -48,16 +48,31 @@ export default function KitchenPage() {
   useOrderSignalR((event) => {
     if (event === 'OrderCreated') {
       audioRef.current?.play().catch(() => {});
-      toast.info("Đơn hàng mới vừa về!", { icon: <BellRing className="text-primary" /> });
+      toast.info("Đơn hàng mới vừa về!", { 
+        icon: <BellRing className="text-primary" />,
+        description: "Vui lòng kiểm tra danh sách chờ nấu."
+      });
+      // Refresh the orders list immediately
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
     }
-  });
+  }, 'Kitchen');
 
-  const { data: orders = [], isLoading } = useQuery<Order[]>({
+  const { data: pagedResult, isLoading } = useQuery({
     queryKey: ['orders'],
-    queryFn: async () => (await apiClient.get('/order')).data,
-    select: (data) => data.filter(o => o.status < 3).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()),
-    refetchInterval: 60000 // Relying on SignalR
+    queryFn: async () => {
+      const res = await apiClient.get('/order');
+      return res.data;
+    },
+    select: (data) => {
+        const items = data.items || [];
+        return items
+          .filter((o: any) => o.status < 3)
+          .sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    },
+    refetchInterval: 30000 // Short polling as fallback
   });
+  
+  const orders = pagedResult || [];
 
   const updateStatusMutation = useMutation({
     mutationFn: ({ id, status, orderObj }: { id: number, status: number, orderObj?: Order }) => 

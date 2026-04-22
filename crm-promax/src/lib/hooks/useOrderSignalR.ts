@@ -5,7 +5,10 @@ import * as signalR from '@microsoft/signalr';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-export function useOrderSignalR(onEvent?: (event: string, ...args: any[]) => void) {
+export function useOrderSignalR(
+  onEvent?: (event: string, ...args: any[]) => void,
+  groupToJoin?: string
+) {
   const queryClient = useQueryClient();
   const connectionRef = useRef<signalR.HubConnection | null>(null);
 
@@ -55,9 +58,18 @@ export function useOrderSignalR(onEvent?: (event: string, ...args: any[]) => voi
     });
 
     connection.start()
-      .then(() => {
+      .then(async () => {
         console.log('✅ SignalR Connected!');
         connectionRef.current = connection;
+        
+        if (groupToJoin) {
+          try {
+            await connection.invoke('JoinGroup', groupToJoin);
+            console.log(`👥 Joined group: ${groupToJoin}`);
+          } catch (e) {
+            console.error(`❌ Failed to join group ${groupToJoin}:`, e);
+          }
+        }
       })
       .catch(err => {
         // Chỉ hiện lỗi nếu không phải là lỗi do React StrictMode ngắt kết nối

@@ -35,4 +35,9 @@ public class NotificationHub : Hub
     {
         await Clients.Group(role).SendAsync("ReceiveNotification", user, message);
     }
+
+    public async Task JoinGroup(string groupName)
+    {
+        await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
+    }
 }
