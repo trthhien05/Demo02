@@ -116,14 +116,16 @@ export default function Header() {
                     </div>
                   </Link>
 
-                  <Link href="/admin/settings" onClick={() => setIsDropdownOpen(false)}>
-                    <div className="flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/5 transition-colors text-sm font-bold group">
-                      <div className="p-2 bg-white/5 rounded-lg text-muted-foreground group-hover:bg-white group-hover:text-black transition-all">
-                         <Settings size={16} />
+                  {profile?.role === 0 && (
+                    <Link href="/admin/settings" onClick={() => setIsDropdownOpen(false)}>
+                      <div className="flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/5 transition-colors text-sm font-bold group">
+                        <div className="p-2 bg-white/5 rounded-lg text-muted-foreground group-hover:bg-white group-hover:text-black transition-all">
+                          <Settings size={16} />
+                        </div>
+                        Cài đặt hệ thống
                       </div>
-                      Cài đặt hệ thống
-                    </div>
-                  </Link>
+                    </Link>
+                  )}
 
                   <div className="mt-2 pt-2 border-t border-white/5">
                     <button 
