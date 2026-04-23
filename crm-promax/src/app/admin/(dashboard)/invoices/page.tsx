@@ -97,16 +97,16 @@ export default function InvoicesPage() {
   const invoices: Invoice[] = pagedResult?.items || [];
   const totalPages = pagedResult?.totalPages || 0;
   const totalItems = pagedResult?.totalCount || 0;
+  const backendStats = pagedResult?.stats;
 
-  // Tính thống kê nhanh
+  // Tính thống kê từ Backend (để chính xác trên toàn bộ tập dữ liệu, không chỉ trang hiện tại)
   const stats = {
      totalCount: totalItems,
-     totalRevenue: invoices.filter(i => i.status === 1).reduce((acc, i) => acc + i.finalAmount, 0),
-     cash: invoices.filter(i => i.status === 1 && i.paymentMethod === 0).reduce((acc, i) => acc + i.finalAmount, 0),
-     card: invoices.filter(i => i.status === 1 && i.paymentMethod === 1).reduce((acc, i) => acc + i.finalAmount, 0),
-     transfer: invoices.filter(i => i.status === 1 && i.paymentMethod === 2).reduce((acc, i) => acc + i.finalAmount, 0),
-     ewallet: invoices.filter(i => i.status === 1 && i.paymentMethod === 3).reduce((acc, i) => acc + i.finalAmount, 0),
-     refunded: invoices.filter(i => i.status === 2).reduce((acc, i) => acc + i.finalAmount, 0)
+     totalRevenue: backendStats?.totalRevenue || 0,
+     cash: backendStats?.cash || 0,
+     card: backendStats?.card || 0,
+     transfer: backendStats?.transfer || 0,
+     refunded: backendStats?.refunded || 0
   };
 
   return (
@@ -221,7 +221,7 @@ export default function InvoicesPage() {
         </div>
         <div className="glass rounded-2xl p-5 border bg-purple-500/10 border-purple-500/20">
             <div className="mb-3 text-purple-400"><Wallet size={20} /></div>
-            <div className="text-2xl font-black">{(stats.transfer + stats.ewallet).toLocaleString()} đ</div>
+            <div className="text-2xl font-black">{stats.transfer.toLocaleString()} đ</div>
             <div className="text-[10px] text-muted-foreground mt-1 font-bold uppercase tracking-widest">CK & Ví ĐT</div>
         </div>
         <div className="glass rounded-2xl p-5 border bg-red-500/10 border-red-500/20">

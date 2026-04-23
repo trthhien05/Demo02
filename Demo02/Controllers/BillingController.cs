@@ -221,8 +221,15 @@ public class BillingController : ControllerBase
             var s = search.ToLower();
             filteredList = filteredList.Where(x => 
                 x.OrderId.ToString() == search ||
-                (x.CustomerName != null && x.CustomerName.ToLower().Contains(s))
+                (x.CustomerName != null && x.CustomerName.ToLower().Contains(s)) ||
+                (x.TableName != null && x.TableName.ToLower().Contains(s))
             );
+        }
+
+        if (!string.IsNullOrEmpty(method) && int.TryParse(method, out var mIdx))
+        {
+            var methodEnum = (PaymentMethod)mIdx;
+            filteredList = filteredList.Where(x => x.PaymentMethod == methodEnum);
         }
 
         if (!string.IsNullOrEmpty(date) && DateTime.TryParse(date, out var parsedDate))
@@ -238,13 +245,26 @@ public class BillingController : ControllerBase
             .Take(pageSize)
             .ToList();
 
+        var totalRevenue = filteredList.Where(x => x.Status == InvoiceStatus.Paid).Sum(x => x.FinalAmount);
+        var cashTotal = filteredList.Where(x => x.Status == InvoiceStatus.Paid && x.PaymentMethod == PaymentMethod.Cash).Sum(x => x.FinalAmount);
+        var cardTotal = filteredList.Where(x => x.Status == InvoiceStatus.Paid && x.PaymentMethod == PaymentMethod.Card).Sum(x => x.FinalAmount);
+        var transferTotal = filteredList.Where(x => x.Status == InvoiceStatus.Paid && (x.PaymentMethod == PaymentMethod.Transfer || x.PaymentMethod == PaymentMethod.EWallet)).Sum(x => x.FinalAmount);
+        var refundedTotal = filteredList.Where(x => x.Status == InvoiceStatus.Voided).Sum(x => x.FinalAmount);
+
         return Ok(new
         {
             TotalCount = totalCount,
             TotalPages = (int)Math.Ceiling((double)totalCount / pageSize),
             Page = page,
             PageSize = pageSize,
-            Items = pagedItems
+            Items = pagedItems,
+            Stats = new {
+                TotalRevenue = totalRevenue,
+                Cash = cashTotal,
+                Card = cardTotal,
+                Transfer = transferTotal,
+                Refunded = refundedTotal
+            }
         });
     }
 
