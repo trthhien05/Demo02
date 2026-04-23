@@ -114,7 +114,7 @@ export default function AdminDashboard() {
   const stats = [
     { 
       label: 'Doanh Thu Hôm Nay', 
-      value: `$${(dashboardData?.todayRevenue || 0).toLocaleString()}`, 
+      value: `${(dashboardData?.todayRevenue || 0).toLocaleString('vi-VN')} VNĐ`, 
       trend: `${dashboardData?.revenueGrowth > 0 ? '+' : ''}${dashboardData?.revenueGrowth || 0}%`, 
       icon: DollarSign, 
       color: 'text-emerald-400', 
@@ -130,7 +130,7 @@ export default function AdminDashboard() {
     },
     { 
       label: 'Khách VIP', 
-      value: dashboardData?.totalCustomers?.toLocaleString() || '0', 
+      value: (dashboardData?.totalCustomers || 0).toLocaleString('vi-VN'), 
       trend: 'CRM', 
       icon: Users, 
       color: 'text-blue-400', 
@@ -138,7 +138,7 @@ export default function AdminDashboard() {
     },
     { 
       label: 'Hóa Đơn TB', 
-      value: `$${(dashboardData?.averageCheck || 0).toFixed(2)}`, 
+      value: `${(dashboardData?.averageCheck || 0).toLocaleString('vi-VN')} VNĐ`, 
       trend: 'Order', 
       icon: TrendingUp, 
       color: 'text-orange-400', 
@@ -324,7 +324,7 @@ export default function AdminDashboard() {
                     axisLine={false} 
                     tickLine={false} 
                     tick={{ fill: '#71717a', fontSize: 12 }}
-                    tickFormatter={(value) => `$${value}`}
+                    tickFormatter={(value) => `${value.toLocaleString('vi-VN')} VNĐ`}
                     width={50}
                   />
                   <Tooltip 
