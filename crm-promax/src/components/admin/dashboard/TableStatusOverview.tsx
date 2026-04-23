@@ -20,7 +20,7 @@ interface DiningTable {
   id: number;
   tableNumber: string;
   capacity: number;
-  status: number; // enum values
+  status: number; // enum valuesss
 }
 
 export default function TableStatusOverview() {

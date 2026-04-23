@@ -161,7 +161,7 @@ public static class DataSeeder
     {
         try
         {
-            // Tìm các đặt bàn cũ chưa có liên kết bàn (mặc định ban đầu là 0)
+            // Tìm các đặt bàn cũ chưa có liên kết bàn (mặc định ban đầu là 0))
             var orphans = context.Reservations.Where(r => r.DiningTableId == 0).ToList();
             if (!orphans.Any()) return;
 
