@@ -185,7 +185,7 @@ export default function KitchenPage() {
         <div className="flex-1 overflow-x-auto overflow-y-hidden pb-4">
           <div className="flex gap-6 h-full min-w-max">
             <AnimatePresence mode="popLayout">
-              {orders.map((order: Order, idx) => {
+              {orders.map((order: Order, idx: number) => {
                 const elapsed = getElapsedTime(order.createdAt);
                 const config = STATUS_CONFIG[order.status] || (order.status === 3 ? { label: 'Hoàn tất', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' } : STATUS_CONFIG[0]);
                 const isUrgent = elapsed > 20 && order.status < 2;
