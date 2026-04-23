@@ -345,11 +345,11 @@ export default function OrderModal({ isOpen, onClose }: OrderModalProps) {
              <div className="w-[450px] flex flex-col bg-black/20">
                 {/* Table Selection (if eat-in or supplement) */}
                 {orderType !== 'take-away' && (
-                   <div className="p-6 border-b border-white/5">
-                       <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-4 flex items-center gap-2">
+                   <div className="p-6 border-b border-white/5 flex flex-col max-h-[280px] shrink-0">
+                       <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-4 shrink-0 flex items-center gap-2">
                           <MapPin size={12} className="text-primary" /> {orderType === 'supplement' ? 'Bàn Đang Phục Vụ (Gọi Thêm)' : 'Chọn Bàn Mới'}
                        </h3>
-                       <div className="space-y-6">
+                       <div className="space-y-6 overflow-y-auto pr-2">
                           {Array.from(new Set(tables.map(t => t.zone || 'Khác'))).map(zone => {
                              const zoneTables = tables.filter(t => (t.zone || 'Khác') === zone);
                              
