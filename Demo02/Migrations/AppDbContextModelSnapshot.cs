@@ -115,7 +115,7 @@ namespace Demo02.Migrations
 
                     b.ToTable("Customers");
                 });
-
+            //
             modelBuilder.Entity("ConnectDB.Models.DiningTable", b =>
                 {
                     b.Property<int>("Id")

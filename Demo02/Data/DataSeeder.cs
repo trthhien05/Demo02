@@ -14,7 +14,7 @@ public static class DataSeeder
         using var scope = serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        // 0. Auto-Healing: Đảm bảo các cột quan trọng tồn tại bằng Raw SQL (Phòng trường hợp Migration bị kẹt trên Render)
+        // 0. Auto-Healing: Đảm bảo các cột quan trọng tồn tại bằng Raw SQL (Phòng trường hợp Migration bị kẹt ở trên Render)
         EnsureProfessionalReservationColumns(context);
 
         try
@@ -52,7 +52,7 @@ public static class DataSeeder
 
             foreach (var table in occupiedTables)
             {
-                // Kiểm tra xem có đơn hàng nào đang hoạt động cho bàn này không
+                // Kiểm tra xem có đơn hàng nào đang hoạt động cho bàn này khôngg
                 var hasActiveOrder = context.Orders.Any(o => o.DiningTableId == table.Id && 
                                                            o.Status != OrderStatus.Completed && 
                                                            o.Status != OrderStatus.Cancelled);
