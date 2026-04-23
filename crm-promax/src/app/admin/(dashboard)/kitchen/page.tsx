@@ -185,7 +185,7 @@ export default function KitchenPage() {
         <div className="flex-1 overflow-x-auto overflow-y-hidden pb-4">
           <div className="flex gap-6 h-full min-w-max">
             <AnimatePresence mode="popLayout">
-              {orders.map((order, idx) => {
+              {orders.map((order: Order, idx) => {
                 const elapsed = getElapsedTime(order.createdAt);
                 const config = STATUS_CONFIG[order.status] || (order.status === 3 ? { label: 'Hoàn tất', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' } : STATUS_CONFIG[0]);
                 const isUrgent = elapsed > 20 && order.status < 2;
@@ -230,7 +230,7 @@ export default function KitchenPage() {
 
                     {/* Order Items */}
                     <div className="flex-1 p-6 space-y-4 overflow-y-auto">
-                        {order.orderItems.map((item, i) => (
+                        {order.orderItems.map((item: OrderItem, i: number) => (
                            <div key={item.id} className="flex gap-4 items-start pb-4 border-b border-white/5 last:border-0 last:pb-0 group relative pr-4">
                             <div className={cn("absolute right-0 top-0 w-1 h-full rounded-full opacity-30", CATEGORY_COLORS[item.menuItem?.category?.name || ''])} />
                             
@@ -289,7 +289,7 @@ export default function KitchenPage() {
             <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground py-2 flex items-center gap-2">
                <RotateCcw size={14} /> Hoàn tất gần đây:
             </span>
-            {recentlyFinished.map(o => (
+            {recentlyFinished.map((o: Order) => (
                <button 
                   key={o.id}
                   onClick={() => updateStatusMutation.mutate({ id: o.id, status: 1 })}
