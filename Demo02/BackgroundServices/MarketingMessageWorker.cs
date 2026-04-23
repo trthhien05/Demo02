@@ -49,13 +49,49 @@ public class MarketingMessageWorker : BackgroundService
 
                         await emailService.SendEmailAsync(
                             message.CustomerEmail, 
-                            "Quà tặng đặc biệt từ PROMAX RMS", 
-                            $"<div style='font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;'>" +
-                            $"<h2 style='color: #8b5cf6;'>Chào bạn!</h2>" +
-                            $"<p style='font-size: 16px; line-height: 1.6;'>{message.DefaultContent}</p>" +
-                            $"<hr style='border: none; border-top: 1px solid #eee; margin: 20px 0;' />" +
-                            $"<p style='font-size: 12px; color: #71717a;'>Đây là email tự động từ hệ thống quản trị nhà hàng VIP Promax.</p>" +
-                            $"</div>"
+                            "💎 Quà tặng đặc biệt từ PROMAX RMS", 
+                            $@"
+                            <div style='background-color: #0c0e12; padding: 40px 20px; font-family: -apple-system, BlinkMacSystemFont, ""Segoe UI"", Roboto, Helvetica, Arial, sans-serif; color: #ffffff;'>
+                                <table align='center' border='0' cellpadding='0' cellspacing='0' width='100%' style='max-width: 600px; background-color: #1a1d23; border: 1px solid #2a2e35; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.4);'>
+                                    <!-- Header / Hero Section -->
+                                    <tr>
+                                        <td align='center' style='padding: 40px 40px 20px 40px;'>
+                                            <div style='background-color: rgba(139, 92, 246, 0.1); width: 80px; height: 80px; border-radius: 20px; line-height: 80px; margin-bottom: 24px; border: 1px solid rgba(139, 92, 246, 0.3);'>
+                                                <span style='font-size: 40px;'>✨</span>
+                                            </div>
+                                            <h1 style='margin: 0; color: #ffffff; font-size: 28px; font-weight: 900; letter-spacing: -0.02em; text-transform: uppercase;'>VIP PROMAX RMS</h1>
+                                            <p style='color: #8b5cf6; font-weight: 700; margin-top: 8px; letter-spacing: 0.2em; font-size: 10px; text-transform: uppercase;'>Premium Hospitality Service</p>
+                                        </td>
+                                    </tr>
+
+                                    <!-- Content Section -->
+                                    <tr>
+                                        <td style='padding: 0 40px 40px 40px;'>
+                                            <div style='background-color: rgba(255,255,255,0.03); border-radius: 20px; padding: 32px; border: 1px solid rgba(255,255,255,0.05);'>
+                                                <h2 style='color: #ffffff; font-size: 20px; margin-top: 0; font-weight: 700;'>Chào bạn thân mến,</h2>
+                                                <p style='font-size: 16px; line-height: 1.8; color: #a1a1aa; margin: 20px 0;'>
+                                                    {message.DefaultContent}
+                                                </p>
+                                                <div style='margin-top: 32px;'>
+                                                    <a href='#' style='background-color: #8b5cf6; color: #ffffff; padding: 16px 32px; border-radius: 14px; text-decoration: none; font-weight: 900; font-size: 12px; letter-spacing: 0.1em; display: inline-block; box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);'>KHÁM PHÁ NGAY</a>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+
+                                    <!-- Footer -->
+                                    <tr>
+                                        <td align='center' style='padding: 0 40px 40px 40px;'>
+                                            <hr style='border: none; border-top: 1px solid rgba(255,255,255,0.05); margin-bottom: 30px;' />
+                                            <p style='margin: 0; font-size: 11px; color: #52525b; line-height: 1.8; letter-spacing: 0.05em;'>
+                                                © {DateTime.Now.Year} VIP PROMAX RESTAURANT MANAGEMENT SYSTEM.<br/>
+                                                Hệ thống thông báo tự động. Vui lòng không trả lời email này.
+                                            </p>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+                            "
                         );
                         _logger.LogInformation($"[EMAIL SENT] To: {message.CustomerEmail}");
                     }
