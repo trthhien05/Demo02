@@ -54,8 +54,24 @@ export default function CheckoutModal({ isOpen, onClose, orderId, tableNumber }:
       onClose();
     },
     onError: (error: any) => {
+      const errorData = error.response?.data;
+      let errorMsg = error.message;
+
+      if (errorData) {
+        if (typeof errorData === 'string') {
+          errorMsg = errorData;
+        } else if (errorData.errors) {
+          // Format validation errors
+          errorMsg = Object.entries(errorData.errors)
+            .map(([field, msgs]) => `${field}: ${(msgs as string[]).join(', ')}`)
+            .join(' | ');
+        } else if (errorData.title) {
+          errorMsg = errorData.title;
+        }
+      }
+
       toast.error('Giao dịch thất bại', {
-        description: error.response?.data || error.message
+        description: errorMsg
       });
     }
   });

@@ -353,10 +353,10 @@ function StaffModal({ isOpen, onClose, initialData }: { isOpen: boolean, onClose
     setIsUploading(true);
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'ml_default');
+    formData.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'asp.net');
 
     try {
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'drpm4i6y6'}/image/upload`, {
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'duvimyvdm'}/image/upload`, {
         method: 'POST',
         body: formData
       });

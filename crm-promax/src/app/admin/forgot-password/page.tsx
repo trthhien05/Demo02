@@ -54,7 +54,7 @@ export default function ForgotPasswordPage() {
     try {
       const res = await apiClient.post('/auth/reset-password', {
         token: data.token,
-        newPassword: data.newPassword
+        password: data.newPassword
       });
       
       toast.success('Thành công', { description: res.data.Message });

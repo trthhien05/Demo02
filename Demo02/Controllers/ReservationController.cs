@@ -99,9 +99,21 @@ public class ReservationController : ControllerBase
         }
 
         _context.Reservations.Add(reservation);
+
+        // 5. Nếu đặt lịch cho NGÀY HÔM NAY -> Đổi trạng thái bàn sang "Reserved" ngay lập tức
+        bool isReservationToday = reservation.ReservationTime.Date == DateTime.UtcNow.Date;
+        if (isReservationToday)
+        {
+            table.Status = TableStatus.Reserved;
+        }
+
         await _context.SaveChangesAsync();
 
-        // Gửi thông báo SignalR
+        // 6. SignalR: Cập nhật sơ đồ bàn và thông báo
+        if (isReservationToday)
+        {
+            await _hubContext.Clients.All.SendAsync("TableStatusChanged", table.Id, (int)TableStatus.Reserved);
+        }
         await _hubContext.Clients.All.SendAsync("ReceiveNotification", "Hệ thống", $"Khách mới đặt bàn {table.TableNumber}: {reservation.PaxCount} khách lúc {reservation.ReservationTime:HH:mm}.");
 
         return CreatedAtAction(nameof(GetReservations), new { id = reservation.Id }, reservation);
@@ -143,6 +155,11 @@ public class ReservationController : ControllerBase
 
             // 4. Gửi thông báo SignalR cho Dashboard
             await _hubContext.Clients.All.SendAsync("ReceiveNotification", "Hệ thống", $"Khách hàng {reservation.Customer.FullName} vừa Check-in tại quầy.");
+            
+            if (table != null)
+            {
+                await _hubContext.Clients.All.SendAsync("TableStatusChanged", table.Id, (int)TableStatus.Occupied);
+            }
         }
 
         await _context.SaveChangesAsync();
@@ -150,15 +167,29 @@ public class ReservationController : ControllerBase
         return Ok(new { Message = "Check-in thành công!", Reservation = reservation });
     }
 
-    [HttpPut("{id}/status")]
+    [HttpPatch("{id}/status")]
     public async Task<IActionResult> UpdateStatus(int id, [FromBody] ReservationStatus newStatus)
     {
-        var reservation = await _context.Reservations.FindAsync(id);
+        var reservation = await _context.Reservations.Include(r => r.DiningTable).FirstOrDefaultAsync(r => r.Id == id);
         if (reservation == null) return NotFound("Không tìm thấy thông tin đặt bàn");
 
+        var oldStatus = reservation.Status;
         reservation.Status = newStatus;
-        await _context.SaveChangesAsync();
 
+        // Nếu hủy hoặc hoàn thành lịch đặt TODAY -> Giải phóng bàn
+        if (reservation.ReservationTime.Date == DateTime.UtcNow.Date)
+        {
+            if (newStatus == ReservationStatus.Cancelled || newStatus == ReservationStatus.Completed)
+            {
+                if (reservation.DiningTable != null)
+                {
+                    reservation.DiningTable.Status = TableStatus.Available;
+                    await _hubContext.Clients.All.SendAsync("TableStatusChanged", reservation.DiningTableId, (int)TableStatus.Available);
+                }
+            }
+        }
+
+        await _context.SaveChangesAsync();
         return Ok(reservation);
     }
 }

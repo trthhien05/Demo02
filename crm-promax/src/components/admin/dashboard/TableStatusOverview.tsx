@@ -8,14 +8,19 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 import { useSignalR } from '@/hooks/useSignalR';
 
-// Enum matches backend
-type TableStatus = 'Available' | 'Reserved' | 'Occupied' | 'Cleaning';
+// Enum matches backend (Numbers)
+enum TableStatus {
+  Available = 0,
+  Reserved = 1,
+  Occupied = 2,
+  Cleaning = 3
+}
 
 interface DiningTable {
   id: number;
   tableNumber: string;
   capacity: number;
-  status: TableStatus;
+  status: number; // enum values
 }
 
 export default function TableStatusOverview() {
@@ -29,23 +34,21 @@ export default function TableStatusOverview() {
       const res = await apiClient.get('/table');
       return res.data;
     },
-    refetchInterval: 60000 // auto refresh every minute as a fallback
+    refetchInterval: 60000 
   });
 
   // 2. Listen to SignalR real-time updates
   useEffect(() => {
     if (connection) {
-      const handleStatusChange = (tableId: number, status: string) => {
-        // Mutate React Query cache dynamically without refetching fully!
+      const handleStatusChange = (tableId: number, status: number) => {
         queryClient.setQueryData(['diningTables'], (oldData: DiningTable[] | undefined) => {
           if (!oldData) return oldData;
           return oldData.map((t) => 
-            t.id === tableId ? { ...t, status: status as TableStatus } : t
+            t.id === tableId ? { ...t, status } : t
           );
         });
       };
 
-      // Ensure we don't bind multiple times if effect re-runs
       connection.off('TableStatusChanged'); 
       connection.on('TableStatusChanged', handleStatusChange);
 
@@ -57,9 +60,9 @@ export default function TableStatusOverview() {
 
   // 3. Compute Stats
   const tableStats = useMemo(() => {
-    const occupied = tables.filter(t => t.status === 'Occupied' || t.status === 'Cleaning').length;
-    const available = tables.filter(t => t.status === 'Available').length;
-    const reserved = tables.filter(t => t.status === 'Reserved').length;
+    const occupied = tables.filter(t => t.status === TableStatus.Occupied || t.status === TableStatus.Cleaning).length;
+    const available = tables.filter(t => t.status === TableStatus.Available).length;
+    const reserved = tables.filter(t => t.status === TableStatus.Reserved).length;
 
     return [
       { label: 'Có Khách', count: occupied, color: 'text-primary', bg: 'bg-primary/20', border: 'border-primary/30', glow: 'shadow-primary/20' },
@@ -68,9 +71,9 @@ export default function TableStatusOverview() {
     ];
   }, [tables]);
 
-  const totalTables = tables.length || 1; // avoid div by 0
+  const totalTables = tables.length || 0; 
   const occupiedCount = tableStats[0].count;
-  const occupancyRate = tables.length > 0 ? Math.round((occupiedCount / totalTables) * 100) : 0;
+  const occupancyRate = totalTables > 0 ? Math.round((occupiedCount / totalTables) * 100) : 0;
 
   if (isLoading) {
     return (

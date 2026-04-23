@@ -40,7 +40,10 @@ export default function ReservationModal({ isOpen, onClose }: ReservationModalPr
   // Fetch Customers
   const { data: customers = [], isLoading: customersLoading } = useQuery<Customer[]>({
     queryKey: ['customers'],
-    queryFn: async () => (await apiClient.get('/customer')).data,
+    queryFn: async () => {
+      const res = await apiClient.get('/customer?pageSize=100'); // Get a larger list for search
+      return res.data.items || [];
+    },
     enabled: isOpen
   });
 

@@ -86,6 +86,7 @@ public class MarketingController : ControllerBase
             await _messageQueue.PutMessageAsync(new CampaignMessage
             {
                 CustomerPhone = customer.PhoneNumber,
+                CustomerEmail = customer.Email,
                 DefaultContent = personalContent
             });
         }

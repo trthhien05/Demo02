@@ -55,7 +55,7 @@ export default function InventoryModal({ isOpen, onClose }: InventoryModalProps)
 
   const filteredMenu = menu.map(cat => ({
     ...cat,
-    menuItems: cat.menuItems.filter(item => 
+    menuItems: (cat.menuItems || []).filter(item => 
        item.name.toLowerCase().includes(search.toLowerCase()) &&
        (activeCategory === 'all' || cat.id === activeCategory)
     )

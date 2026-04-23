@@ -24,10 +24,13 @@ import { cn } from '@/lib/utils';
 import TopSellingItems from '@/components/admin/dashboard/TopSellingItems';
 import RecentOrdersTable from '@/components/admin/dashboard/RecentOrdersTable';
 import TableStatusOverview from '@/components/admin/dashboard/TableStatusOverview';
-import { useQuery } from '@tanstack/react-query';
+import { useSignalR } from '@/hooks/useSignalR';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 
 export default function AdminDashboard() {
+  const queryClient = useQueryClient();
+  const connection = useSignalR();
   const [isMounted, setIsMounted] = React.useState(false);
   const [isChartsMounted, setIsChartsMounted] = React.useState(false);
   const [daysFilter, setDaysFilter] = React.useState(7);
@@ -40,6 +43,27 @@ export default function AdminDashboard() {
     const timer = setTimeout(() => setIsChartsMounted(true), 1000);
     return () => clearTimeout(timer);
   }, []);
+
+  // Listen for real-time updates to refresh stats
+  React.useEffect(() => {
+    if (connection) {
+      const handleRefresh = () => {
+        queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      };
+
+      connection.on('TableStatusChanged', handleRefresh);
+      connection.on('OrderCreated', handleRefresh);
+      connection.on('OrderCancelled', handleRefresh);
+      connection.on('OrderUpdated', handleRefresh);
+
+      return () => {
+        connection.off('TableStatusChanged', handleRefresh);
+        connection.off('OrderCreated', handleRefresh);
+        connection.off('OrderCancelled', handleRefresh);
+        connection.off('OrderUpdated', handleRefresh);
+      };
+    }
+  }, [connection, queryClient]);
 
   // Consolidated Dashboard Data
   const { data: dashboardData, isLoading: isDashboardLoading } = useQuery({

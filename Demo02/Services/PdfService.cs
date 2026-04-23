@@ -29,7 +29,29 @@ public class PdfService : IPdfService
             .Include(i => i.Customer)
             .FirstOrDefaultAsync(i => i.Id == invoiceId);
 
-        if (invoice == null) throw new Exception("Không tìm thấy hóa đơn");
+        if (invoice == null)
+        {
+            // Fallback to Order if manual invoice doesn't exist
+            var order = await _context.Orders
+                .Include(o => o.OrderItems)
+                    .ThenInclude(oi => oi.MenuItem)
+                .FirstOrDefaultAsync(o => o.Id == invoiceId);
+
+            if (order == null) throw new Exception("Không tìm thấy dữ liệu hóa đơn hoặc đơn hàng");
+
+            var taxRate = 0.08m;
+            invoice = new Invoice
+            {
+                Id = order.Id,
+                OrderId = order.Id,
+                IssuedAt = order.CreatedAt,
+                Subtotal = order.TotalAmount,
+                VatAmount = order.TotalAmount * taxRate,
+                FinalAmount = order.TotalAmount + (order.TotalAmount * taxRate),
+                Order = order,
+                Status = InvoiceStatus.Paid
+            };
+        }
 
         var settings = await _context.RestaurantSettings.FirstOrDefaultAsync();
         var restaurantName = settings?.Name ?? "PROMAX RESTAURANT";

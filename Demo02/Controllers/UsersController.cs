@@ -10,6 +10,7 @@ using ConnectDB.Services;
 namespace ConnectDB.Controllers;
 
 [ApiController]
+[ConnectDB.Filters.DisableGlobalAudit]
 [Route("api/[controller]")]
 [Authorize] // Require authentication for all endpoints
 public class UsersController : ControllerBase

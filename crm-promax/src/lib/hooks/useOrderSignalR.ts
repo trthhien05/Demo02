@@ -11,6 +11,12 @@ export function useOrderSignalR(
 ) {
   const queryClient = useQueryClient();
   const connectionRef = useRef<signalR.HubConnection | null>(null);
+  const onEventRef = useRef(onEvent);
+
+  // Cập nhật ref mỗi khi onEvent thay đổi để effect không phải chạy lại
+  useEffect(() => {
+    onEventRef.current = onEvent;
+  }, [onEvent]);
 
   useEffect(() => {
     const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
@@ -30,31 +36,31 @@ export function useOrderSignalR(
         duration: 5000,
       });
       
-      onEvent?.('OrderCreated', orderId, tableNumber);
+      onEventRef.current?.('OrderCreated', orderId, tableNumber);
       
       // Play sound
       try {
-        const audio = new Audio('/sounds/notification.mp3');
+        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
         audio.play().catch(() => {});
       } catch (e) {}
     });
 
     connection.on('OrderStatusChanged', (orderId: number, status: string) => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
-      onEvent?.('OrderStatusChanged', orderId, status);
+      onEventRef.current?.('OrderStatusChanged', orderId, status);
     });
 
     connection.on('TableStatusChanged', () => {
       queryClient.invalidateQueries({ queryKey: ['tables'] });
       queryClient.invalidateQueries({ queryKey: ['reservations'] });
-      onEvent?.('TableStatusChanged');
+      onEventRef.current?.('TableStatusChanged');
     });
 
     connection.on('ReceiveNotification', (user: string, message: string) => {
       toast.info(message, { 
         description: `Từ: ${user}`
       });
-      onEvent?.('ReceiveNotification', user, message);
+      onEventRef.current?.('ReceiveNotification', user, message);
     });
 
     connection.start()
@@ -83,7 +89,7 @@ export function useOrderSignalR(
         connection.stop();
       }
     };
-  }, [queryClient]);
+  }, [queryClient, groupToJoin]);
 
   return connectionRef.current;
 }

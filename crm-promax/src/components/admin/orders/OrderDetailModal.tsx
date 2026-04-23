@@ -16,6 +16,7 @@ interface OrderDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   order: any | null;
+  onCheckout?: (id: number, table: string) => void;
 }
 
 const STATUS_CONFIG: Record<number, { label: string, color: string, bg: string }> = {
@@ -26,7 +27,7 @@ const STATUS_CONFIG: Record<number, { label: string, color: string, bg: string }
   4: { label: 'Đã hủy', color: 'text-red-400', bg: 'bg-red-500/10' },
 };
 
-export default function OrderDetailModal({ isOpen, onClose, order }: OrderDetailModalProps) {
+export default function OrderDetailModal({ isOpen, onClose, order, onCheckout }: OrderDetailModalProps) {
   if (!isOpen || !order) return null;
 
   const status = STATUS_CONFIG[order.status] || STATUS_CONFIG[0];
@@ -115,34 +116,35 @@ export default function OrderDetailModal({ isOpen, onClose, order }: OrderDetail
                 </div>
              </div>
 
-             {/* Items List */}
-             <div className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1 flex items-center gap-2">
-                   <ShoppingBag size={12} /> Danh sách món ăn
-                </h3>
-                <div className="space-y-3">
-                   {order.orderItems && order.orderItems.length > 0 ? (
-                      order.orderItems.map((item: any, idx: number) => (
-                         <div key={idx} className="p-4 bg-white/5 border border-white/5 rounded-2xl flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-black/40 flex items-center justify-center text-primary font-black border border-white/5">
-                               {item.quantity}
-                            </div>
-                            <div className="flex-1">
-                               <div className="font-bold text-sm tracking-tight">{item.menuItem?.name || 'Món ăn'}</div>
-                               <div className="text-[10px] text-muted-foreground uppercase tracking-widest italic">{item.unitPrice.toLocaleString()}đ / món</div>
-                            </div>
-                            <div className="font-mono font-black text-sm text-foreground">
-                               {(item.unitPrice * item.quantity).toLocaleString()}đ
-                            </div>
-                         </div>
-                      ))
-                   ) : (
-                      <div className="p-8 border border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center text-center">
-                         <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Không có món ăn nào trong đơn hàng này</p>
-                      </div>
-                   )}
-                </div>
-             </div>
+              {/* Items List */}
+              <div className="space-y-4">
+                 <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1 flex items-center gap-2">
+                    <ShoppingBag size={12} /> Danh sách món ăn
+                 </h3>
+                 <div className="space-y-3">
+                    {/* Hỗ trợ cả camelCase và PascalCase cho orderItems */}
+                    {(order.orderItems || order.OrderItems) && (order.orderItems || order.OrderItems).length > 0 ? (
+                       (order.orderItems || order.OrderItems).map((item: any, idx: number) => (
+                          <div key={idx} className="p-4 bg-white/5 border border-white/5 rounded-2xl flex items-center gap-4">
+                             <div className="w-10 h-10 rounded-xl bg-black/40 flex items-center justify-center text-primary font-black border border-white/5">
+                                {item.quantity}
+                             </div>
+                             <div className="flex-1">
+                                <div className="font-bold text-sm tracking-tight">{item.menuItem?.name || 'Món ăn'}</div>
+                                <div className="text-[10px] text-muted-foreground uppercase tracking-widest italic">{(item.unitPrice || 0).toLocaleString()}đ / món</div>
+                             </div>
+                             <div className="font-mono font-black text-sm text-foreground">
+                                {((item.unitPrice || 0) * (item.quantity || 0)).toLocaleString()}đ
+                             </div>
+                          </div>
+                       ))
+                    ) : (
+                       <div className="p-8 border border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center text-center">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Không có món ăn nào trong đơn hàng này</p>
+                       </div>
+                    )}
+                 </div>
+              </div>
 
              {/* Special Notes (if any) */}
              {order.specialNotes && (
@@ -155,7 +157,19 @@ export default function OrderDetailModal({ isOpen, onClose, order }: OrderDetail
              )}
           </div>
 
-          <div className="p-8 border-t border-white/5 bg-white/[0.02] flex gap-4">
+          <div className="p-8 border-t border-white/5 bg-white/[0.02] flex flex-col sm:flex-row gap-4">
+             {(order.status === 0 || order.status === 1 || order.status === 2) && onCheckout && (
+                <button 
+                   onClick={() => {
+                      onCheckout(order.id, order.diningTable?.tableNumber || 'Mang về');
+                      onClose();
+                   }}
+                   className="flex-1 py-4 bg-emerald-500 hover:bg-emerald-400 text-white rounded-2xl font-black uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20"
+                >
+                   <CreditCard size={18} />
+                   Thanh Toán Ngay
+                </button>
+             )}
              {order.status === 3 && (
                 <button 
                    onClick={handleDownloadPDF}
@@ -170,7 +184,7 @@ export default function OrderDetailModal({ isOpen, onClose, order }: OrderDetail
                 onClick={onClose}
                 className={cn(
                    "py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl font-black uppercase tracking-widest text-xs transition-all px-8",
-                   order.status !== 3 ? "w-full" : "flex-1"
+                   (order.status !== 3 && order.status !== 2) ? "w-full" : "flex-1"
                 )}
              >
                 Đóng

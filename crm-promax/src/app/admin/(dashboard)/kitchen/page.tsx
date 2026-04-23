@@ -28,7 +28,7 @@ interface Order {
 const STATUS_CONFIG: Record<number, { label: string, color: string, nextAction: string, nextStatus: number }> = {
   0: { label: 'Chờ xử lý', color: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20', nextAction: 'Bắt đầu làm', nextStatus: 1 },
   1: { label: 'Đang nấu', color: 'bg-orange-500/10 text-orange-400 border-orange-500/20', nextAction: 'Xong món - Lên bàn', nextStatus: 2 },
-  2: { label: 'Đã lên món', color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', nextAction: 'Hoàn tất', nextStatus: 3 },
+  2: { label: 'Đã lên món', color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', nextAction: 'Đã ra món xong', nextStatus: 2 },
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -41,6 +41,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 export default function KitchenPage() {
   const queryClient = useQueryClient();
+  const [view, setView] = useState<'active' | 'history'>('active');
   const [recentlyFinished, setRecentlyFinished] = useState<Order[]>([]);
   const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
@@ -52,24 +53,35 @@ export default function KitchenPage() {
         icon: <BellRing className="text-primary" />,
         description: "Vui lòng kiểm tra danh sách chờ nấu."
       });
-      // Refresh the orders list immediately
       queryClient.invalidateQueries({ queryKey: ['orders'] });
     }
   }, 'Kitchen');
 
-  const { data: pagedResult, isLoading } = useQuery<Order[]>({
-    queryKey: ['orders'],
+  const { data: pagedResult, isLoading } = useQuery<any>({
+    queryKey: ['orders', view],
     queryFn: async () => {
+      if (view === 'history') {
+         // Lấy các đơn đã ra món hoặc hoàn thành trong hôm nay
+         const today = new Date().toISOString().split('T')[0];
+         const res = await apiClient.get(`/order?status=2&pageSize=50&date=${today}`);
+         const resCompleted = await apiClient.get(`/order?status=3&pageSize=50&date=${today}`);
+         
+         const items = [...(res.data.items || []), ...(resCompleted.data.items || [])];
+         return { items };
+      }
       const res = await apiClient.get('/order');
       return res.data;
     },
     select: (data: any) => {
         const items = data.items || [];
+        if (view === 'history') {
+           return items.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        }
         return items
-          .filter((o: Order) => o.status < 3)
+          .filter((o: Order) => o.status < 2)
           .sort((a: Order, b: Order) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
     },
-    refetchInterval: 30000 // Short polling as fallback
+    refetchInterval: view === 'active' ? 30000 : 60000 
   });
   
   const orders = pagedResult || [];
@@ -80,10 +92,10 @@ export default function KitchenPage() {
     onSuccess: (res, variables) => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       
-      // If completed (3), add to recall list
-      if (variables.status === 3 && variables.orderObj) {
-        setRecentlyFinished(prev => [{ ...variables.orderObj, status: 3 } as Order, ...prev].slice(0, 5));
-      } else if (variables.status < 3) {
+      // If Served (2) or completed (3), add to recall list
+      if ((variables.status === 2 || variables.status === 3) && variables.orderObj) {
+        setRecentlyFinished(prev => [{ ...variables.orderObj, status: variables.status } as Order, ...prev].slice(0, 5));
+      } else if (variables.status < 2) {
         // If recalled, remove from history
         setRecentlyFinished(prev => prev.filter(o => o.id !== variables.id));
       }
@@ -119,6 +131,27 @@ export default function KitchenPage() {
           </div>
         </div>
 
+        <div className="flex bg-white/5 border border-white/5 rounded-2xl p-1.5 gap-1 shadow-inner">
+          <button 
+            onClick={() => setView('active')}
+            className={cn(
+              "px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2",
+              view === 'active' ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-muted-foreground hover:text-white"
+            )}
+          >
+             <ChefHat size={16} /> Đang chế biến
+          </button>
+          <button 
+            onClick={() => setView('history')}
+            className={cn(
+              "px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2",
+              view === 'history' ? "bg-white/10 text-white shadow-lg" : "text-muted-foreground hover:text-white"
+            )}
+          >
+             <Clock size={16} /> Lịch sử hôm nay
+          </button>
+        </div>
+
         <div className="flex bg-white/5 border border-white/5 rounded-2xl p-2 gap-4">
           <button 
             onClick={() => setIsInventoryModalOpen(true)}
@@ -128,7 +161,7 @@ export default function KitchenPage() {
           </button>
           <div className="px-4 py-2 text-center border-l border-white/5">
              <div className="text-2xl font-black text-yellow-400">{orders.filter((o: Order) => o.status === 0).length}</div>
-             <div className="text-[10px] font-bold uppercase text-muted-foreground">Đang chờ</div>
+             <div className="text-[10px] font-bold uppercase text-muted-foreground">Chờ xử lý</div>
           </div>
           <div className="px-4 py-2 text-center">
              <div className="text-2xl font-black text-primary">{orders.filter((o: Order) => o.status === 1).length}</div>
@@ -145,8 +178,8 @@ export default function KitchenPage() {
       ) : orders.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center opacity-30">
           <UtensilsCrossed size={80} className="mb-6" />
-          <h2 className="text-2xl font-bold uppercase tracking-widest">Bếp đang trống</h2>
-          <p className="text-sm mt-2">Đang chờ đơn hàng mới từ quầy/phục vụ...</p>
+          <h2 className="text-2xl font-bold uppercase tracking-widest">{view === 'active' ? 'Bếp đang trống' : 'Chưa có lịch sử'}</h2>
+          <p className="text-sm mt-2">{view === 'active' ? 'Đang chờ đơn hàng mới từ quầy/phục vụ...' : 'Hôm nay chưa có đơn hàng nào được ra món.'}</p>
         </div>
       ) : (
         <div className="flex-1 overflow-x-auto overflow-y-hidden pb-4">
@@ -154,7 +187,7 @@ export default function KitchenPage() {
             <AnimatePresence mode="popLayout">
               {orders.map((order, idx) => {
                 const elapsed = getElapsedTime(order.createdAt);
-                const config = STATUS_CONFIG[order.status] || STATUS_CONFIG[0];
+                const config = STATUS_CONFIG[order.status] || (order.status === 3 ? { label: 'Hoàn tất', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' } : STATUS_CONFIG[0]);
                 const isUrgent = elapsed > 20 && order.status < 2;
 
                 return (
@@ -168,7 +201,7 @@ export default function KitchenPage() {
                       "w-[350px] flex flex-col bg-[#0f1115] rounded-[2rem] border-2 transition-all shadow-2xl relative overflow-hidden",
                       isUrgent ? "border-red-500/50 shadow-red-500/10" : 
                       !order.diningTable ? "border-emerald-500/30 shadow-emerald-500/10" :
-                      "border-white/5 shadow-black/50"
+                      view === 'history' ? "border-white/5 opacity-80" : "border-white/5 shadow-black/50"
                     )}
                   >
                     {/* Urgency Badge */}
@@ -190,16 +223,15 @@ export default function KitchenPage() {
                       </div>
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <Clock size={14} />
-                        <span className="text-sm font-bold">{elapsed} phút trước</span>
+                        <span className="text-sm font-bold">{view === 'active' ? `${elapsed} phút trước` : new Date(order.createdAt).toLocaleTimeString('vi-VN')}</span>
                         <span className="text-[10px] font-medium opacity-50 font-mono ml-auto">#{order.id.toString().padStart(5, '0')}</span>
                       </div>
                     </div>
 
                     {/* Order Items */}
                     <div className="flex-1 p-6 space-y-4 overflow-y-auto">
-                      {order.orderItems.map((item, i) => (
-                         <div className="flex gap-4 items-start pb-4 border-b border-white/5 last:border-0 last:pb-0 group relative pr-4">
-                            {/* Category Indicator Stripe */}
+                        {order.orderItems.map((item, i) => (
+                           <div key={item.id} className="flex gap-4 items-start pb-4 border-b border-white/5 last:border-0 last:pb-0 group relative pr-4">
                             <div className={cn("absolute right-0 top-0 w-1 h-full rounded-full opacity-30", CATEGORY_COLORS[item.menuItem?.category?.name || ''])} />
                             
                             <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center font-black text-xl text-primary group-hover:bg-primary/20 transition-colors">
@@ -213,42 +245,35 @@ export default function KitchenPage() {
                             </div>
                          </div>
                       ))}
-
-                      {/* Special Notes */}
-                      {order.specialNotes && (
-                        <div className="mt-4 p-4 rounded-2xl bg-primary/5 border border-primary/20 relative overflow-hidden group/note">
-                           <div className="absolute top-0 right-0 p-2 opacity-10 group-hover/note:opacity-20 transition-opacity">
-                              <BellRing size={24} className="text-primary rotate-12" />
-                           </div>
-                           <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary mb-2 flex items-center gap-2">
-                              <AlertCircle size={10} /> Ghi chú đặc biệt
-                           </h4>
-                           <p className="text-sm font-bold leading-relaxed text-foreground">"{order.specialNotes}"</p>
-                        </div>
-                      )}
                     </div>
 
                     {/* Actions */}
                     <div className="p-4 bg-white/5 mt-auto">
-                      <button 
-                        onClick={() => updateStatusMutation.mutate({ id: order.id, status: config.nextStatus, orderObj: order })}
-                        disabled={updateStatusMutation.isPending}
-                        className={cn(
-                          "w-full py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 transition-all",
-                          order.status === 0 ? "bg-primary text-primary-foreground hover:bg-primary/80 shadow-lg shadow-primary/20" : 
-                          order.status === 1 ? "bg-orange-500 text-white hover:bg-orange-400 shadow-lg shadow-orange-500/20" :
-                          "bg-emerald-500 text-white hover:bg-emerald-400 shadow-lg shadow-emerald-500/20"
-                        )}
-                      >
-                         {updateStatusMutation.isPending ? (
-                           <Loader2 className="animate-spin" />
-                         ) : (
-                           <>
-                             {config.nextAction}
-                             <ChevronRight size={20} />
-                           </>
-                         )}
-                      </button>
+                      {view === 'active' ? (
+                        <button 
+                          onClick={() => updateStatusMutation.mutate({ id: order.id, status: (STATUS_CONFIG[order.status] || STATUS_CONFIG[0]).nextStatus, orderObj: order })}
+                          disabled={updateStatusMutation.isPending}
+                          className={cn(
+                            "w-full py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 transition-all",
+                            order.status === 0 ? "bg-primary text-primary-foreground hover:bg-primary/80 shadow-lg shadow-primary/20" : 
+                            "bg-orange-500 text-white hover:bg-orange-400 shadow-lg shadow-orange-500/20"
+                          )}
+                        >
+                           {updateStatusMutation.isPending ? <Loader2 className="animate-spin" /> : <>{(STATUS_CONFIG[order.status] || STATUS_CONFIG[0]).nextAction} <ChevronRight size={20} /></>}
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={() => {
+                             if (confirm("Bạn có muốn hoàn tác đơn hàng này về trạng thái Đang nấu?")) {
+                               updateStatusMutation.mutate({ id: order.id, status: 1 });
+                             }
+                          }}
+                          disabled={updateStatusMutation.isPending}
+                          className="w-full py-5 bg-white/5 hover:bg-white/10 text-muted-foreground hover:text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 border border-white/5 transition-all"
+                        >
+                           <RotateCcw size={16} /> HOÀN TÁC VỀ BẾP
+                        </button>
+                      )}
                     </div>
                   </motion.div>
                 );
@@ -259,7 +284,7 @@ export default function KitchenPage() {
       )}
 
       {/* Recently Finished (Recall) Bar */}
-      {recentlyFinished.length > 0 && (
+      {view === 'active' && recentlyFinished.length > 0 && (
          <div className="flex gap-4 overflow-x-auto pb-2 border-t border-white/5 pt-4">
             <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground py-2 flex items-center gap-2">
                <RotateCcw size={14} /> Hoàn tất gần đây:
@@ -267,7 +292,7 @@ export default function KitchenPage() {
             {recentlyFinished.map(o => (
                <button 
                   key={o.id}
-                  onClick={() => updateStatusMutation.mutate({ id: o.id, status: 2 })}
+                  onClick={() => updateStatusMutation.mutate({ id: o.id, status: 1 })}
                   className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[10px] font-bold transition-all"
                >
                   Bàn {o.diningTable?.tableNumber || 'MV'} - Hoàn tác
@@ -288,9 +313,6 @@ export default function KitchenPage() {
       </div>
 
       <InventoryModal isOpen={isInventoryModalOpen} onClose={() => setIsInventoryModalOpen(false)} />
-      
-      {/* Sound Element */}
-      <audio ref={audioRef} src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto" />
     </div>
   );
 }

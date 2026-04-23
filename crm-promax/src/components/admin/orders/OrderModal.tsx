@@ -29,35 +29,36 @@ interface MenuItem {
 interface DiningTable {
   id: number;
   tableNumber: string;
-  status: number; // 0: Available, 1: Occupied, 2: Reserved
+  status: number; // 0: Available, 1: Reserved, 2: Occupied, 3: Cleaning
+  zone?: string;
+}
+
+interface Category {
+  id: number;
+  name: string;
+  menuItems: MenuItem[];
 }
 
 interface CartItem extends MenuItem {
-  quantity: number;
-  note: string;
+   quantity: number;
+   note?: string;
 }
 
 export default function OrderModal({ isOpen, onClose }: OrderModalProps) {
   const queryClient = useQueryClient();
   const [step, setStep] = useState<'type' | 'items'>('type');
-  const [orderType, setOrderType] = useState<'eat-in' | 'take-away'>('eat-in');
+  const [orderType, setOrderType] = useState<'eat-in' | 'take-away' | 'supplement'>('eat-in');
   const [selectedTableId, setSelectedTableId] = useState<number | null>(null);
+  const [activeOrder, setActiveOrder] = useState<any>(null);
+  const [activeCategoryId, setActiveCategoryId] = useState<number | 'all'>('all');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [specialNotes, setSpecialNotes] = useState('');
 
   // Fetch Data
-  const { data: menu = [] } = useQuery<MenuItem[]>({
-    queryKey: ['menu-items'],
-    queryFn: async () => {
-       const res = await apiClient.get('/menu');
-       // Flatten items from categories
-       const allItems: MenuItem[] = [];
-       res.data.forEach((cat: any) => {
-          if (cat.menuItems) allItems.push(...cat.menuItems);
-       });
-       return allItems;
-    },
+  const { data: categories = [] } = useQuery<Category[]>({
+    queryKey: ['menu-categories'],
+    queryFn: async () => (await apiClient.get('/menu')).data,
     enabled: isOpen
   });
 
@@ -84,17 +85,65 @@ export default function OrderModal({ isOpen, onClose }: OrderModalProps) {
     }
   });
 
+  const addItemsMutation = useMutation({
+    mutationFn: ({ id, items }: { id: number, items: any[] }) => apiClient.post(`/order/${id}/add-items`, items),
+    onSuccess: () => {
+       queryClient.invalidateQueries({ queryKey: ['orders'] });
+       toast.success("Đã bổ sung món ăn thành công!", {
+          description: `Đơn hàng #${activeOrder?.id} đã được cập nhật.`
+       });
+       handleClose();
+    },
+    onError: (err: any) => {
+       toast.error("Lỗi khi bổ sung món", {
+          description: err.response?.data || "Vui lòng kiểm tra lại kết nối."
+       });
+    }
+  });
+
   // Derived State
   const filteredMenu = useMemo(() => {
-    return menu.filter(item => 
+    let items: MenuItem[] = [];
+    if (activeCategoryId === 'all') {
+      categories.forEach(cat => {
+        if (cat.menuItems) items.push(...cat.menuItems);
+      });
+    } else {
+      const cat = categories.find(c => c.id === activeCategoryId);
+      if (cat?.menuItems) items = cat.menuItems;
+    }
+
+    return items.filter(item => 
        item.isAvailable && 
        item.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [menu, searchQuery]);
+  }, [categories, activeCategoryId, searchQuery]);
 
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
   // Handlers
+  const handleTableSelect = async (table: DiningTable) => {
+     setSelectedTableId(table.id);
+     if (table.status === 2) { // Occupied
+        try {
+           const res = await apiClient.get(`/order/active/table/${table.id}`);
+           setActiveOrder(res.data);
+           if (orderType === 'eat-in') {
+              toast.info(`Bàn ${table.tableNumber} đang có khách`, {
+                 description: "Hệ thống đã chuyển sang chế độ GỌI THÊM MÓN."
+              });
+           }
+        } catch (err) {
+           setActiveOrder(null);
+           if (orderType === 'supplement') {
+              toast.error("Không tìm thấy đơn hàng cho bàn này");
+           }
+        }
+     } else {
+        setActiveOrder(null);
+     }
+  };
+
   const addToCart = (item: MenuItem) => {
     setCart(prev => {
        const existing = prev.find(i => i.id === item.id);
@@ -123,6 +172,7 @@ export default function OrderModal({ isOpen, onClose }: OrderModalProps) {
     setStep('type');
     setCart([]);
     setSelectedTableId(null);
+    setActiveOrder(null);
     setSearchQuery('');
     setSpecialNotes('');
     onClose();
@@ -133,8 +183,23 @@ export default function OrderModal({ isOpen, onClose }: OrderModalProps) {
        toast.error("Vui lòng chọn ít nhất một món ăn.");
        return;
     }
-    if (orderType === 'eat-in' && !selectedTableId) {
-       toast.error("Vui lòng chọn bàn cho khách.");
+    if (orderType !== 'take-away' && !selectedTableId) {
+       toast.error("Vui lòng chọn bàn phục vụ.");
+       return;
+    }
+
+    if (orderType === 'supplement' || activeOrder) {
+       if (!activeOrder && orderType === 'supplement') {
+          toast.error("Vui lòng chọn bàn đang dùng bữa.");
+          return;
+       }
+       
+       const items = cart.map(item => ({
+          menuItemId: item.id,
+          quantity: item.quantity,
+          note: item.note
+       }));
+       addItemsMutation.mutate({ id: activeOrder.id, items });
        return;
     }
 
@@ -182,18 +247,25 @@ export default function OrderModal({ isOpen, onClose }: OrderModalProps) {
              <div className="flex items-center gap-4">
                 <div className="flex bg-black/40 p-1 rounded-2xl border border-white/5">
                    <button 
-                      onClick={() => setOrderType('eat-in')}
+                      onClick={() => { setOrderType('eat-in'); setSelectedTableId(null); setActiveOrder(null); }}
                       className={cn("px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all", 
                          orderType === 'eat-in' ? "bg-primary text-primary-foreground shadow-lg" : "text-muted-foreground hover:text-white")}
                    >
                       Ăn Tại Chỗ
                    </button>
                    <button 
-                      onClick={() => { setOrderType('take-away'); setSelectedTableId(null); }}
+                      onClick={() => { setOrderType('take-away'); setSelectedTableId(null); setActiveOrder(null); }}
                       className={cn("px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all", 
                          orderType === 'take-away' ? "bg-emerald-500 text-white shadow-lg" : "text-muted-foreground hover:text-white")}
                    >
                       Mang Về
+                   </button>
+                   <button 
+                      onClick={() => { setOrderType('supplement'); setSelectedTableId(null); setActiveOrder(null); }}
+                      className={cn("px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all", 
+                         orderType === 'supplement' ? "bg-orange-600 text-white shadow-lg" : "text-muted-foreground hover:text-white")}
+                   >
+                      Đang Phục Vụ
                    </button>
                 </div>
                 <button onClick={handleClose} className="p-3 hover:bg-white/10 rounded-full transition-colors text-muted-foreground hover:text-white">
@@ -206,16 +278,39 @@ export default function OrderModal({ isOpen, onClose }: OrderModalProps) {
              {/* Left: Menu Browser */}
              <div className="flex-1 flex flex-col border-r border-white/5 bg-white/[0.01]">
                 <div className="p-6">
-                   <div className="relative group">
-                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
-                      <input 
-                         type="text"
-                         placeholder="Tìm món ăn nhanh..."
-                         value={searchQuery}
-                         onChange={e => setSearchQuery(e.target.value)}
-                         className="w-full bg-black/40 border border-white/10 rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-primary/50 transition-all text-sm"
-                      />
-                   </div>
+                    <div className="flex gap-4 items-center">
+                       <div className="relative group flex-1">
+                          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
+                          <input 
+                             type="text"
+                             placeholder="Tìm món ăn..."
+                             value={searchQuery}
+                             onChange={e => setSearchQuery(e.target.value)}
+                             className="w-full bg-black/40 border border-white/10 rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-primary/50 transition-all text-sm"
+                          />
+                       </div>
+                    </div>
+
+                    {/* Category Tabs */}
+                    <div className="flex gap-2 overflow-x-auto pb-2 mt-4 scrollbar-hide border-b border-white/5">
+                       <button 
+                          onClick={() => setActiveCategoryId('all')}
+                          className={cn("px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all", 
+                             activeCategoryId === 'all' ? "bg-primary text-primary-foreground shadow-lg" : "bg-white/5 text-muted-foreground hover:text-white")}
+                       >
+                          Tất cả
+                       </button>
+                       {categories.map(cat => (
+                          <button 
+                             key={cat.id}
+                             onClick={() => setActiveCategoryId(cat.id)}
+                             className={cn("px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap", 
+                                activeCategoryId === cat.id ? "bg-primary text-primary-foreground shadow-lg" : "bg-white/5 text-muted-foreground hover:text-white")}
+                          >
+                             {cat.name}
+                          </button>
+                       ))}
+                    </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-6 pt-0">
@@ -248,32 +343,60 @@ export default function OrderModal({ isOpen, onClose }: OrderModalProps) {
 
              {/* Right: Cart & Configuration */}
              <div className="w-[450px] flex flex-col bg-black/20">
-                {/* Table Selection (if eat-in) */}
-                {orderType === 'eat-in' && (
+                {/* Table Selection (if eat-in or supplement) */}
+                {orderType !== 'take-away' && (
                    <div className="p-6 border-b border-white/5">
-                      <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-4 flex items-center gap-2">
-                         <MapPin size={12} className="text-primary" /> Chọn Bàn Phục Vụ
-                      </h3>
-                      <div className="grid grid-cols-4 gap-2">
-                         {tables.map(table => {
-                            const isAvailable = table.status === 0;
-                            const isSelected = selectedTableId === table.id;
-                            return (
-                               <button
-                                  key={table.id}
-                                  disabled={!isAvailable && !isSelected}
-                                  onClick={() => setSelectedTableId(table.id)}
-                                  className={cn(
-                                     "py-3 rounded-xl text-xs font-bold transition-all border",
-                                     isSelected ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20" : 
-                                     isAvailable ? "bg-white/5 border-white/5 hover:border-primary/50 text-white" : "opacity-20 bg-transparent border-dashed cursor-not-allowed"
-                                  )}
-                               >
-                                  {table.tableNumber}
-                               </button>
-                            );
-                         })}
-                      </div>
+                       <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-4 flex items-center gap-2">
+                          <MapPin size={12} className="text-primary" /> {orderType === 'supplement' ? 'Bàn Đang Phục Vụ (Gọi Thêm)' : 'Chọn Bàn Mới'}
+                       </h3>
+                       <div className="space-y-6">
+                          {Array.from(new Set(tables.map(t => t.zone || 'Khác'))).map(zone => {
+                             const zoneTables = tables.filter(t => (t.zone || 'Khác') === zone);
+                             
+                             // 🔥 Logic Lọc Bàn:
+                             // - Supplement: Chỉ hiện bàn đang phục vụ (Status 2: Occupied)
+                             // - Dine-in: Chỉ hiện bàn trống/đã đặt/đang dọn (Ẩn status 2)
+                             const filteredTables = orderType === 'supplement' 
+                                ? zoneTables.filter(t => t.status === 2) 
+                                : zoneTables.filter(t => t.status !== 2);
+                             
+                             if (filteredTables.length === 0) return null;
+
+                             return (
+                                <div key={zone}>
+                                   <h4 className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2">
+                                      <div className="w-1 h-3 bg-primary/40 rounded-full" /> Khu vực {zone}
+                                   </h4>
+                                   <div className="grid grid-cols-4 gap-2">
+                                      {filteredTables.map(table => {
+                                         // Status: 0=Available, 1=Reserved, 2=Occupied, 3=Cleaning
+                                         const isSelected = selectedTableId === table.id;
+                                         return (
+                                            <button
+                                               key={table.id}
+                                               onClick={() => handleTableSelect(table)}
+                                               className={cn(
+                                                  "py-3 rounded-xl text-xs font-bold transition-all border relative overflow-hidden flex flex-col items-center justify-center",
+                                                  isSelected ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20 scale-[1.02] z-10" : 
+                                                  "bg-white/5 border-white/5 hover:border-primary/50 text-white"
+                                               )}
+                                            >
+                                               <span className="relative z-10">{table.tableNumber}</span>
+                                               
+                                               {table.status === 3 && (
+                                                  <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+                                               )}
+                                               {table.status === 2 && (
+                                                  <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-orange-500" />
+                                               )}
+                                            </button>
+                                         );
+                                      })}
+                                   </div>
+                                </div>
+                             );
+                          })}
+                       </div>
                    </div>
                 )}
 
@@ -281,7 +404,7 @@ export default function OrderModal({ isOpen, onClose }: OrderModalProps) {
                 <div className="flex-1 flex flex-col overflow-hidden">
                    <div className="p-6 pb-2 flex items-center justify-between">
                       <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
-                         <ShoppingCart size={12} className="text-primary" /> Chi tiết đơn hàng
+                         <ShoppingCart size={12} className="text-primary" /> {activeOrder ? `Bổ sung Đơn #${activeOrder.id}` : 'Chi tiết đơn hàng'}
                       </h3>
                       <span className="text-[10px] font-bold text-primary px-2 py-0.5 bg-primary/10 rounded-full">{cart.length} món</span>
                    </div>
@@ -312,7 +435,7 @@ export default function OrderModal({ isOpen, onClose }: OrderModalProps) {
                                      </div>
                                      <span className="font-mono font-bold text-xs">{(item.price * item.quantity).toLocaleString()}đ</span>
                                   </div>
-                               </div>
+                                </div>
                             </motion.div>
                          ))}
                       </AnimatePresence>
@@ -351,12 +474,12 @@ export default function OrderModal({ isOpen, onClose }: OrderModalProps) {
 
                    <button
                       onClick={handleSubmit}
-                      disabled={cart.length === 0 || createOrderMutation.isPending || (orderType === 'eat-in' && !selectedTableId)}
+                      disabled={cart.length === 0 || createOrderMutation.isPending || addItemsMutation.isPending || (orderType === 'eat-in' && !selectedTableId)}
                       className="w-full py-5 bg-primary text-primary-foreground rounded-2xl font-black uppercase tracking-[0.3em] text-xs hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20 disabled:grayscale disabled:opacity-50 flex items-center justify-center gap-3"
                    >
-                      {createOrderMutation.isPending ? <Loader2 className="animate-spin" size={18} /> : (
+                      {createOrderMutation.isPending || addItemsMutation.isPending ? <Loader2 className="animate-spin" size={18} /> : (
                          <>
-                            XÁC NHẬN ORDER
+                            {activeOrder ? 'XÁC NHẬN GỌI THÊM' : 'XÁC NHẬN ORDER'}
                             <ChevronRight size={18} />
                          </>
                       )}

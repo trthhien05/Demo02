@@ -423,16 +423,16 @@ export default function ProfilePage() {
                             </div>
                         ) : (
                             activityLogs.map((log, idx) => (
-                                <div key={log.Id || idx} className="relative pl-10 group">
+                                <div key={log.id || idx} className="relative pl-10 group">
                                     <div className="absolute left-3 top-0 bottom-0 w-[1px] bg-white/5" />
                                     <div className="absolute left-1.5 top-2 w-3 h-3 rounded-full bg-primary/50 group-hover:scale-125 transition-transform" />
                                     <div className="p-5 bg-white/[0.02] border border-white/5 rounded-2xl hover:bg-white/[0.04] transition-all">
                                         <div className="flex items-center justify-between mb-1">
-                                           <span className="text-[10px] font-black uppercase tracking-widest text-primary">{log.Action}</span>
-                                           <span className="text-[10px] font-bold text-muted-foreground">{new Date(log.CreatedAt).toLocaleString()}</span>
+                                           <span className="text-[10px] font-black uppercase tracking-widest text-primary">{log.action}</span>
+                                           <span className="text-[10px] font-bold text-muted-foreground">{log.createdAt ? new Date(log.createdAt).toLocaleString() : 'N/A'}</span>
                                         </div>
-                                        <p className="text-sm font-bold text-white mb-1">{log.Module}</p>
-                                        <p className="text-xs text-muted-foreground leading-relaxed">{log.Description}</p>
+                                        <p className="text-sm font-bold text-white mb-1">{log.module}</p>
+                                        <p className="text-xs text-muted-foreground leading-relaxed">{log.description}</p>
                                     </div>
                                 </div>
                             ))

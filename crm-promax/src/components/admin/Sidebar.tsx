@@ -9,6 +9,7 @@ import {
   ShoppingCart, 
   UtensilsCrossed, 
   ChefHat,
+  Receipt,
   Settings, 
   LogOut,
   ChevronLeft,
@@ -32,6 +33,7 @@ import { useQuery } from '@tanstack/react-query';
 const navItems = [
   { name: 'Tổng Quan', icon: LayoutDashboard, href: '/admin', roles: [0, 1, 2, 3, 4] },
   { name: 'Đơn Hàng', icon: ShoppingCart, href: '/admin/orders', roles: [0, 1, 2, 3, 4] },
+  { name: 'Thanh Toán', icon: Receipt, href: '/admin/invoices', roles: [0, 1, 2] },
   { name: 'Nhà Bếp', icon: ChefHat, href: '/admin/kitchen', roles: [0, 3] },
   { name: 'Phân Tích', icon: BarChart3, href: '/admin/reports', roles: [0] },
   { name: 'Nhật Ký', icon: History, href: '/admin/logs', roles: [0] },

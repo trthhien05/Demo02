@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace ConnectDB.Models;
 
@@ -12,12 +13,14 @@ public class Invoice
     public int OrderId { get; set; }
 
     [ForeignKey("OrderId")]
-    public Order Order { get; set; } = null!;
+    [JsonIgnore]
+    public virtual Order? Order { get; set; }
 
     public int? CustomerId { get; set; }
 
     [ForeignKey("CustomerId")]
-    public Customer? Customer { get; set; }
+    [JsonIgnore]
+    public virtual Customer? Customer { get; set; }
 
     [Column(TypeName = "decimal(18,2)")]
     public decimal Subtotal { get; set; }

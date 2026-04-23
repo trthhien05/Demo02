@@ -24,18 +24,89 @@ public static class DataSeeder
             SeedMenu(context);
             SeedCustomers(context);
             SeedInventory(context);
+            SeedRecipes(context);
             SeedHistory(context); // Orders & Invoices
             SeedReservations(context);
             SeedVouchers(context);
 
-            // Nâng cấp dữ liệu cũ (Legacy Migration)
+            // Nâng cấp dữ liệu cũ (Legacy Migration) & Sửa lỗi đồng bộ bàn/đơn hàng
             FixOrphanReservations(context);
+            AutoHealTableStatuses(context);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[SEEDER] An error occurred during seeding or migration: {ex.Message}");
             // Không văng lỗi (crash) để ứng dụng vẫn có thể khởi động
         }
+    }
+
+    private static void AutoHealTableStatuses(AppDbContext context)
+    {
+        try
+        {
+            Console.WriteLine("[DB HEALING] Synchronizing table statuses with active orders...");
+            
+            // 1. Tìm tất cả bàn đang đánh dấu là Occupied
+            var occupiedTables = context.DiningTables.Where(t => t.Status == TableStatus.Occupied).ToList();
+            int fixedCount = 0;
+
+            foreach (var table in occupiedTables)
+            {
+                // Kiểm tra xem có đơn hàng nào đang hoạt động cho bàn này không
+                var hasActiveOrder = context.Orders.Any(o => o.DiningTableId == table.Id && 
+                                                           o.Status != OrderStatus.Completed && 
+                                                           o.Status != OrderStatus.Cancelled);
+                
+                if (!hasActiveOrder)
+                {
+                    table.Status = TableStatus.Available;
+                    fixedCount++;
+                }
+            }
+
+            if (fixedCount > 0)
+            {
+                context.SaveChanges();
+                Console.WriteLine($"[DB HEALING] Fixed {fixedCount} inconsistent table statuses (Occupied without active order).");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[DB HEALING] Error during table status sync: {ex.Message}");
+        }
+    }
+
+    private static void SeedRecipes(AppDbContext context)
+    {
+        if (context.Recipes.Count() > 2) return; // Already seeded with some recipes
+
+        var wagyu = context.MenuItems.FirstOrDefault(m => m.Name.Contains("Wagyu"));
+        var celery = context.MenuItems.FirstOrDefault(m => m.Name.Contains("Cần Tây"));
+        var lobster = context.MenuItems.FirstOrDefault(m => m.Name.Contains("Tôm Hùm"));
+        var salmonItem = context.MenuItems.FirstOrDefault(m => m.Name.Contains("Cá Hồi"));
+        var wine = context.MenuItems.FirstOrDefault(m => m.Name.Contains("Rượu Vang"));
+        
+        var beef = context.InventoryItems.FirstOrDefault(i => i.Name.Contains("Thịt Bò"));
+        var salmonInv = context.InventoryItems.FirstOrDefault(i => i.Name.Contains("Cá Hồi"));
+        var lobsterInv = context.InventoryItems.FirstOrDefault(i => i.Name.Contains("Tôm Hùm"));
+        var wineInv = context.InventoryItems.FirstOrDefault(i => i.Name.Contains("Rượu Vang"));
+        
+        if (wagyu != null && beef != null)
+            context.Recipes.Add(new Recipe { MenuItemId = wagyu.Id, InventoryItemId = beef.Id, Quantity = 0.3m });
+
+        if (celery != null && beef != null)
+            context.Recipes.Add(new Recipe { MenuItemId = celery.Id, InventoryItemId = beef.Id, Quantity = 0.1m });
+
+        if (lobster != null && lobsterInv != null)
+            context.Recipes.Add(new Recipe { MenuItemId = lobster.Id, InventoryItemId = lobsterInv.Id, Quantity = 1.0m }); // 1 con per dish
+
+        if (salmonItem != null && salmonInv != null)
+            context.Recipes.Add(new Recipe { MenuItemId = salmonItem.Id, InventoryItemId = salmonInv.Id, Quantity = 0.2m }); // 200g per dish
+
+        if (wine != null && wineInv != null)
+            context.Recipes.Add(new Recipe { MenuItemId = wine.Id, InventoryItemId = wineInv.Id, Quantity = 1.0m }); // 1 ly/chai
+
+        context.SaveChanges();
     }
 
     private static void EnsureProfessionalReservationColumns(AppDbContext context)
@@ -114,17 +185,32 @@ public static class DataSeeder
 
     private static void SeedUsers(AppDbContext context)
     {
-        if (context.Users.Any()) return;
-
         var users = new[]
         {
-            new User { Username = "admin", PasswordHash = HashPassword("admin123"), FullName = "Trần Thành Hiển", Role = UserRole.Admin, Email = "doanvanhieu179@gmail.com", PhoneNumber = "0869165351", AvatarUrl = "https://res.cloudinary.com/drpm4i6y6/image/upload/v1713801234/avatars/admin.png" },
+            new User { Username = "admin", PasswordHash = HashPassword("admin123"), FullName = "Trần Thành Hiển", Role = UserRole.Admin, Email = "doanvanhieu379@gmail.com", PhoneNumber = "0869165351", AvatarUrl = "https://res.cloudinary.com/drpm4i6y6/image/upload/v1713801234/avatars/admin.png" },
             new User { Username = "kitchen", PasswordHash = HashPassword("kitchen123"), FullName = "Huỳnh Ngọc Thạch", Role = UserRole.Kitchen, Email = "chonguathach@gmail.com", PhoneNumber = "0345660934", AvatarUrl = "https://res.cloudinary.com/drpm4i6y6/image/upload/v1713801235/avatars/chef.png" },
             new User { Username = "cashier", PasswordHash = HashPassword("cashier123"), FullName = "Nguyễn Thị Cẩm Tú", Role = UserRole.Cashier, Email = "nguyenthicamtu332@gmail.com", PhoneNumber = "0355051308", AvatarUrl = "https://res.cloudinary.com/drpm4i6y6/image/upload/v1713801236/avatars/cashier.png" },
             new User { Username = "waiter", PasswordHash = HashPassword("waiter123"), FullName = "Nguyễn Anh Tính", Role = UserRole.Waiter, Email = "anhtinh@gmail.com", PhoneNumber = "0375335833", AvatarUrl = "https://res.cloudinary.com/drpm4i6y6/image/upload/v1713801237/avatars/waiter.png" }
         };
 
-        context.Users.AddRange(users);
+        foreach (var u in users)
+        {
+            var existing = context.Users.FirstOrDefault(x => x.Username == u.Username);
+            if (existing == null)
+            {
+                context.Users.Add(u);
+            }
+            else
+            {
+                // Force update credentials and info
+                existing.PasswordHash = u.PasswordHash;
+                existing.FullName = u.FullName;
+                existing.Email = u.Email;
+                existing.PhoneNumber = u.PhoneNumber;
+                existing.AvatarUrl = u.AvatarUrl;
+            }
+        }
+        
         context.SaveChanges();
     }
 
@@ -143,42 +229,70 @@ public static class DataSeeder
         for (int i = 1; i <= 3; i++) 
             tables.Add(new DiningTable { TableNumber = $"VIP-{i:D2}", Capacity = i * 2 + 4, Status = TableStatus.Available, Zone = "VIP" });
 
-        // Set some mixed statuses
-        tables[0].Status = TableStatus.Occupied;
-        tables[1].Status = TableStatus.Reserved;
-        tables[2].Status = TableStatus.Cleaning;
-        tables[11].Status = TableStatus.Occupied;
-
         context.DiningTables.AddRange(tables);
         context.SaveChanges();
     }
 
     private static void SeedMenu(AppDbContext context)
     {
-        if (context.MenuCategories.Any()) return;
+        if (context.MenuCategories.Count() > 5) return; // Already upgraded
+
+        // Clear small existing menu to upgrade
+        if (context.MenuCategories.Any())
+        {
+            context.MenuItems.RemoveRange(context.MenuItems);
+            context.MenuCategories.RemoveRange(context.MenuCategories);
+            context.SaveChanges();
+        }
 
         var categories = new[]
         {
-            new MenuCategory { Name = "Món Chính", Description = "Các món đặc trưng của nhà hàng" },
-            new MenuCategory { Name = "Đồ Uống", Description = "Cocktails, Rượu & Nước ép" },
-            new MenuCategory { Name = "Tráng Miệng", Description = "Bánh ngọt & Trái cây" }
+            new MenuCategory { Name = "Món Chính", Description = "Tinh hoa ẩm thực nhà hàng" },
+            new MenuCategory { Name = "Món Phụ", Description = "Khai vị & Đồ ăn kèm" },
+            new MenuCategory { Name = "Lẩu", Description = "Lẩu đặc sắc, ấm áp" },
+            new MenuCategory { Name = "Nướng", Description = "Đồ nướng thơm lừng" },
+            new MenuCategory { Name = "Chiên / Xào", Description = "Giòn rụm & Đậm đà" },
+            new MenuCategory { Name = "Đồ Uống", Description = "Rượu, Cocktails & Nước ép" },
+            new MenuCategory { Name = "Tráng Miệng", Description = "Đồ ngọt & Trái cây" },
+            new MenuCategory { Name = "Món Ăn Thêm", Description = "Bún, mì, rau thêm" },
+            new MenuCategory { Name = "Combo / Set Menu", Description = "Gói ăn đoàn viên, nhóm bạn" }
         };
         context.MenuCategories.AddRange(categories);
         context.SaveChanges();
 
-        var mainId = categories[0].Id;
-        var drinkId = categories[1].Id;
-        var dessertId = categories[2].Id;
+        var catMap = categories.ToDictionary(c => c.Name, c => c.Id);
 
-        var items = new[]
+        var items = new List<MenuItem>
         {
-            new MenuItem { Name = "Bò Wagyu Nướng Đá", Description = "Thịt bò Wagyu cao cấp nướng trên đá nóng", Price = 1250000, CategoryId = mainId, IsAvailable = true, ImageUrl = "https://images.unsplash.com/photo-1544025162-d76694265947" },
-            new MenuItem { Name = "Cần Tây Sốt Vang", Description = "Món khai vị nhẹ nhàng sang trọng", Price = 150000, CategoryId = mainId, IsAvailable = true, ImageUrl = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c" },
-            new MenuItem { Name = "Cá Hồi Na Uy Áp Chảo", Description = "Cá hồi tươi ngon cùng sốt chanh leo", Price = 450000, CategoryId = mainId, IsAvailable = true, ImageUrl = "https://images.unsplash.com/photo-1467003909585-2f8a72700288" },
-            new MenuItem { Name = "Tôm Hùm Alaska Hấp", Description = "Tôm hùm nguyên con sốt bơ tỏi", Price = 2500000, CategoryId = mainId, IsAvailable = true, ImageUrl = "https://images.unsplash.com/photo-1559742811-822873691df8" },
-            new MenuItem { Name = "Cocktail Signature", Description = "Vị mạnh mẽ từ rượu nền sồi", Price = 280000, CategoryId = drinkId, IsAvailable = true, ImageUrl = "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b" },
-            new MenuItem { Name = "Rượu Vang Đỏ (Ly)", Description = "Vang từ vùng Bordeaux nước Pháp", Price = 195000, CategoryId = drinkId, IsAvailable = true, ImageUrl = "https://images.unsplash.com/photo-1510812431401-41d2bd2722f3" },
-            new MenuItem { Name = "Tiramisu Gold Leaf", Description = "Bánh Tiramisu rắc vàng 24k", Price = 320000, CategoryId = dessertId, IsAvailable = true, ImageUrl = "https://images.unsplash.com/photo-1543508282-5c1f427f023f" }
+            // Món Chính
+            new MenuItem { Name = "Bò Wagyu Nướng Đá", Description = "Thịt bò Wagyu cao cấp A5 nướng trên đá nóng Nhật Bản", Price = 1250000, CategoryId = catMap["Món Chính"], IsAvailable = true, ImageUrl = "https://images.unsplash.com/photo-1544025162-d76694265947" },
+            new MenuItem { Name = "Cá Hồi Na Uy Áp Chảo", Description = "Cá hồi phi lê sốt chanh leo và măng tây", Price = 450000, CategoryId = catMap["Món Chính"], IsAvailable = true, ImageUrl = "https://images.unsplash.com/photo-1467003909585-2f8a72700288" },
+            new MenuItem { Name = "Sườn Cừu Nướng Thảo Mộc", Description = "Sườn cừu non tẩm ướp lá hương thảo", Price = 680000, CategoryId = catMap["Món Chính"], IsAvailable = true, ImageUrl = "https://images.unsplash.com/photo-1544025162-d76694265947" },
+            
+            // Lẩu
+            new MenuItem { Name = "Lẩu Thái Hải Sản", Description = "Vị chua cay đặc trưng cùng hải sản tươi sống", Price = 550000, CategoryId = catMap["Lẩu"], IsAvailable = true, ImageUrl = "https://images.unsplash.com/photo-1547928576-a4a33237ce35" },
+            new MenuItem { Name = "Lẩu Nấm Chim Câu", Description = "Thanh đạm, bổ dưỡng từ 10 loại nấm quý", Price = 480000, CategoryId = catMap["Lẩu"], IsAvailable = true, ImageUrl = "https://images.unsplash.com/photo-1547928576-a4a33237ce35" },
+
+            // Nướng
+            new MenuItem { Name = "Dẻ Sườn Bò Mỹ Nướng", Description = "Sườn bò tẩm sốt BBQ độc bản", Price = 390000, CategoryId = catMap["Nướng"], IsAvailable = true, ImageUrl = "https://images.unsplash.com/photo-1544025162-d76694265947" },
+            new MenuItem { Name = "Ba Chỉ Heo Tộc Nướng", Description = "Thịt heo tộc thơm, giòn bì", Price = 220000, CategoryId = catMap["Nướng"], IsAvailable = true, ImageUrl = "https://images.unsplash.com/photo-1544025162-d76694265947" },
+
+            // Chiên / Xào
+            new MenuItem { Name = "Tôm Sú Chiên Hoàng Kim", Description = "Tôm sú sốt trứng muối béo ngậy", Price = 320000, CategoryId = catMap["Chiên / Xào"], IsAvailable = true, ImageUrl = "https://images.unsplash.com/photo-1559742811-822873691df8" },
+            new MenuItem { Name = "Mực Tươi Xào Sa Tế", Description = "Mực lá xào cay nồng", Price = 280000, CategoryId = catMap["Chiên / Xào"], IsAvailable = true, ImageUrl = "https://images.unsplash.com/photo-1559742811-822873691df8" },
+
+            // Đồ Uống
+            new MenuItem { Name = "Rượu Vang Đỏ (Chai)", Description = "Cabernet Sauvignon danh tiếng", Price = 1850000, CategoryId = catMap["Đồ Uống"], IsAvailable = true, ImageUrl = "https://images.unsplash.com/photo-1510812431401-41d2bd2722f3" },
+            new MenuItem { Name = "Cocktail Signature", Description = "Vị mạnh mẽ từ rượu nền sồi", Price = 280000, CategoryId = catMap["Đồ Uống"], IsAvailable = true, ImageUrl = "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b" },
+            new MenuItem { Name = "Nước Ép Cam Tươi", Description = "Vitamin C tự nhiên 100%", Price = 65000, CategoryId = catMap["Đồ Uống"], IsAvailable = true, ImageUrl = "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b" },
+
+            // Tráng Miệng
+            new MenuItem { Name = "Tiramisu Gold Leaf", Description = "Bánh Tiramisu rắc vàng 24k", Price = 320000, CategoryId = catMap["Tráng Miệng"], IsAvailable = true, ImageUrl = "https://images.unsplash.com/photo-1543508282-5c1f427f023f" },
+            new MenuItem { Name = "Chocolate Lava Cake", Description = "Socola chảy tan trong miệng", Price = 150000, CategoryId = catMap["Tráng Miệng"], IsAvailable = true, ImageUrl = "https://images.unsplash.com/photo-1543508282-5c1f427f023f" },
+
+            // Combo
+            new MenuItem { Name = "Set Family Warmth", Description = "Dành cho gia đình 4-6 người. Gồm lẩu, 3 món chính, 2 món phụ", Price = 2450000, CategoryId = catMap["Combo / Set Menu"], IsAvailable = true, ImageUrl = "https://images.unsplash.com/photo-1547928576-a4a33237ce35" },
+            new MenuItem { Name = "Combo Date Night", Description = "Dành cho cặp đôi. 2 món chính cao cấp, 2 vang ly, 1 tráng miệng", Price = 1800000, CategoryId = catMap["Combo / Set Menu"], IsAvailable = true, ImageUrl = "https://images.unsplash.com/photo-1547928576-a4a33237ce35" }
         };
 
         context.MenuItems.AddRange(items);

@@ -18,6 +18,10 @@ const nextConfig: NextConfig = {
         source: '/notificationHub/:path*',
         destination: `${backendUrl}/notificationHub/:path*`,
       },
+      {
+        source: '/images/:path*',
+        destination: `${backendUrl}/images/:path*`,
+      },
     ];
   },
 };

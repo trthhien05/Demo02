@@ -7,6 +7,8 @@ import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import Pagination from '@/components/common/Pagination';
+
 
 interface AuditLog {
   id: number;
@@ -23,6 +25,33 @@ export default function AuditLogsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [moduleFilter, setModuleFilter] = useState<string>('all');
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
+  const [page, setPage] = useState(1);
+  const pageSize = 15;
+
+  const { data: pagedResult, isLoading } = useQuery<{
+    items: AuditLog[];
+    totalCount: number;
+    totalPages: number;
+    page: number;
+    pageSize: number;
+  }>({
+    queryKey: ['audit-logs', page, searchTerm, moduleFilter],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.append('page', page.toString());
+      params.append('pageSize', pageSize.toString());
+      if (searchTerm.trim()) params.append('search', searchTerm.trim());
+      if (moduleFilter !== 'all') params.append('module', moduleFilter);
+      
+      const res = await apiClient.get(`/audit?${params.toString()}`);
+      return res.data;
+    },
+    refetchInterval: 30000 
+  });
+
+  const logs = pagedResult?.items || [];
+  const totalCount = pagedResult?.totalCount || 0;
+  const totalPages = pagedResult?.totalPages || 0;
 
   const handleExportCSV = () => {
     if (logs.length === 0) {
@@ -64,23 +93,10 @@ export default function AuditLogsPage() {
     }
   };
 
-  const { data: logs = [], isLoading } = useQuery<AuditLog[]>({
-    queryKey: ['audit-logs'],
-    queryFn: async () => (await apiClient.get('/audit')).data,
-    refetchInterval: 30000 // Auto refresh every 30s
-  });
 
-  const filteredLogs = logs.filter(log => {
-    const matchesSearch = 
-      log.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.userFullName.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesModule = moduleFilter === 'all' || log.module === moduleFilter;
-    
-    return matchesSearch && matchesModule;
-  });
+  // Common modules list for filtering
+  const COMMON_MODULES = ['Auth', 'Order', 'Menu', 'Inventory', 'Customer', 'Staff'];
 
-  const modules = Array.from(new Set(logs.map(l => l.module)));
 
   return (
     <div className="space-y-8 pb-10">
@@ -91,25 +107,26 @@ export default function AuditLogsPage() {
         </motion.div>
 
         <div className="flex flex-wrap items-center gap-4">
-          <div className="flex bg-white/5 border border-white/10 rounded-2xl p-1">
+          <div className="flex bg-white/5 border border-white/10 rounded-2xl p-1 overflow-x-auto no-scrollbar max-w-[400px]">
              <button 
-                onClick={() => setModuleFilter('all')}
-                className={cn("px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all", 
+                onClick={() => { setModuleFilter('all'); setPage(1); }}
+                className={cn("px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shrink-0", 
                    moduleFilter === 'all' ? "bg-primary text-white" : "text-muted-foreground hover:text-white")}
              >
                 Tất cả
              </button>
-             {modules.map(mod => (
+             {COMMON_MODULES.map(mod => (
                 <button 
                    key={mod}
-                   onClick={() => setModuleFilter(mod)}
-                   className={cn("px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all", 
+                   onClick={() => { setModuleFilter(mod); setPage(1); }}
+                   className={cn("px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shrink-0", 
                       moduleFilter === mod ? "bg-primary text-white" : "text-muted-foreground hover:text-white")}
                 >
                    {mod}
                 </button>
              ))}
           </div>
+
 
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
@@ -158,7 +175,7 @@ export default function AuditLogsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredLogs.map((log) => (
+                {logs.map((log) => (
                   <tr 
                      key={log.id} 
                      onClick={() => setSelectedLog(log)}
@@ -308,6 +325,17 @@ export default function AuditLogsPage() {
           </div>
         )}
       </AnimatePresence>
+
+      <div className="mt-8">
+        <Pagination 
+          currentPage={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          totalItems={totalCount}
+          pageSize={pageSize}
+        />
+      </div>
     </div>
   );
 }
+

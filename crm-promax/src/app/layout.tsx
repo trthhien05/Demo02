@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PROMAX RMS",
+  title: "Kyubee",
   description: "Restaurant Management System CRM",
 };
 

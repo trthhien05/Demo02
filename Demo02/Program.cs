@@ -163,7 +163,10 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-builder.Services.AddControllers()
+builder.Services.AddControllers(options => 
+    {
+        options.Filters.Add<ConnectDB.Filters.AuditFilter>();
+    })
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;

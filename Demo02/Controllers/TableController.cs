@@ -97,7 +97,7 @@ public class TableController : ControllerBase
         await _context.SaveChangesAsync();
 
         // Đồng bộ SignalR
-        await _hubContext.Clients.All.SendAsync("TableStatusChanged", id, request.Status.ToString());
+        await _hubContext.Clients.All.SendAsync("TableStatusChanged", id, (int)request.Status);
 
         return Ok(table);
     }

@@ -38,8 +38,9 @@ public class BillingController : ControllerBase
         if (order == null) return NotFound("Không tìm thấy đơn hàng");
 
         var settings = await _context.RestaurantSettings.FirstOrDefaultAsync();
-        decimal taxRate = settings?.TaxRate ?? 0.08m;
-        decimal svcChargeRate = settings?.ServiceCharge ?? 0.05m;
+        // Model defaults to 8.0m for 8%, so we must divide by 100
+        decimal taxRate = (settings?.TaxRate ?? 8.0m) / 100m;
+        decimal svcChargeRate = (settings?.ServiceCharge ?? 0.0m) / 100m;
 
         decimal subtotal = order.TotalAmount;
         decimal vat = subtotal * taxRate;
@@ -76,18 +77,13 @@ public class BillingController : ControllerBase
             order.Status = OrderStatus.Completed;
             if (order.DiningTable != null)
             {
-                order.DiningTable.Status = TableStatus.Available;
+                order.DiningTable.Status = TableStatus.Cleaning;
             }
 
             await _context.SaveChangesAsync();
 
-            // 3. Trừ kho nguyên liệu (Deduct Inventory)
-            var deductSuccess = await _inventoryService.DeductStockAsync(invoice.OrderId);
-            if (!deductSuccess)
-            {
-                await transaction.RollbackAsync();
-                return BadRequest("Không thể trừ kho, vui lòng kiểm tra lại nguyên vật liệu.");
-            }
+            // 3. Stock is now deducted in OrderController when moving to Preparing
+            // so we don't need to do it here anymore.
 
             // 4. Tích lũy điểm Loyalty (nếu có khách hàng)
             if (invoice.CustomerId.HasValue)
@@ -102,8 +98,15 @@ public class BillingController : ControllerBase
             await transaction.CommitAsync();
 
             // 5. SignalR: Cập nhật sơ đồ bàn và thông báo
-            await _hubContext.Clients.All.SendAsync("TableStatusChanged", order.DiningTableId, "Available");
-            await _hubContext.Clients.All.SendAsync("ReceiveNotification", "Thu ngân", $"Bàn {order.DiningTable.TableNumber} đã thanh toán thành công!");
+            if (order.DiningTable != null)
+            {
+                await _hubContext.Clients.All.SendAsync("TableStatusChanged", order.DiningTableId, "Cleaning");
+                await _hubContext.Clients.All.SendAsync("ReceiveNotification", "Thu ngân", $"Bàn {order.DiningTable.TableNumber} đã thanh toán thành công! Vui lòng dọn dẹp.");
+            }
+            else
+            {
+               await _hubContext.Clients.All.SendAsync("ReceiveNotification", "Thu ngân", $"Đơn hàng #{order.Id} đã thanh toán thành công!");
+            }
 
             return Ok(invoice);
         }
@@ -123,9 +126,145 @@ public class BillingController : ControllerBase
             .OrderByDescending(i => i.IssuedAt)
             .FirstOrDefaultAsync(i => i.OrderId == orderId);
 
-        if (invoice == null) return NotFound("Không tìm thấy hóa đơn cho đơn hàng này");
+        if (invoice != null) return Ok(invoice);
 
-        return Ok(invoice);
+        // FALLBACK: If invoice does not exist in DB, but Order exists, we generate a preview/mock invoice on the fly
+        var order = await _context.Orders
+            .Include(o => o.OrderItems)
+            .FirstOrDefaultAsync(o => o.Id == orderId);
+
+        if (order == null) return NotFound("Không tìm thấy hóa đơn cho đơn hàng này");
+
+        var taxRate = 0.08m; // Default VAT
+        var newInvoice = new Invoice
+        {
+            Id = order.Id, // Mock ID matching Order ID
+            OrderId = order.Id,
+            IssuedAt = order.CreatedAt,
+            Subtotal = order.TotalAmount,
+            VatAmount = order.TotalAmount * taxRate,
+            FinalAmount = order.TotalAmount + (order.TotalAmount * taxRate),
+            Status = InvoiceStatus.Paid,
+            PaymentMethod = PaymentMethod.Cash,
+            Order = order
+        };
+
+        return Ok(newInvoice);
+    }
+
+    public record LedgerEntry(
+        int Id,
+        int OrderId,
+        DateTime IssuedAt,
+        decimal FinalAmount,
+        InvoiceStatus Status,
+        PaymentMethod PaymentMethod,
+        string CustomerName,
+        string TableName,
+        string Type
+    );
+
+    [HttpGet("invoices")]
+    public async Task<IActionResult> GetAllInvoices([FromQuery] string? search, [FromQuery] string? method, [FromQuery] string? date, [FromQuery] int page = 1, [FromQuery] int pageSize = 12)
+    {
+        // 1. Get all actual Invoices
+        var invoices = await _context.Invoices
+            .Include(i => i.Order)
+                .ThenInclude(o => o.DiningTable)
+            .Include(i => i.Customer)
+            .OrderByDescending(i => i.IssuedAt)
+            .ToListAsync();
+
+        // 2. Identify "Ghost Revenue" (Completed orders missing an Invoice record)
+        var completedOrderIdsWithInvoices = invoices.Select(i => i.OrderId).ToHashSet();
+        
+        var ghostOrders = await _context.Orders
+            .Include(o => o.DiningTable)
+            .Where(o => o.Status == OrderStatus.Completed)
+            .ToListAsync();
+
+        var allEntries = new List<LedgerEntry>();
+        
+        // Add actual invoices
+        allEntries.AddRange(invoices.Select(i => new LedgerEntry(
+            i.Id,
+            i.OrderId,
+            i.IssuedAt,
+            i.FinalAmount,
+            i.Status,
+            i.PaymentMethod,
+            i.Customer?.FullName ?? "Khách lẻ",
+            i.Order?.DiningTable?.TableNumber ?? "Mang về",
+            "Real"
+        )));
+
+        // Add ghost invoices (auto-generated from completed orders)
+        allEntries.AddRange(ghostOrders
+            .Where(o => !completedOrderIdsWithInvoices.Contains(o.Id))
+            .Select(o => new LedgerEntry(
+                -o.Id, // Use negative OrderId as unique virtual ID
+                o.Id,
+                o.CreatedAt,
+                o.TotalAmount,
+                InvoiceStatus.Paid,
+                PaymentMethod.Cash, 
+                "Khách vãng lai",
+                o.DiningTable?.TableNumber ?? "Mang về",
+                "Virtual"
+            )));
+
+        // Apply global search/filter on the combined list (Memory)
+        var filteredList = allEntries.AsEnumerable();
+        
+        if (!string.IsNullOrEmpty(search))
+        {
+            var s = search.ToLower();
+            filteredList = filteredList.Where(x => 
+                x.OrderId.ToString() == search ||
+                (x.CustomerName != null && x.CustomerName.ToLower().Contains(s))
+            );
+        }
+
+        if (!string.IsNullOrEmpty(date) && DateTime.TryParse(date, out var parsedDate))
+        {
+            var d = parsedDate.Date;
+            filteredList = filteredList.Where(x => x.IssuedAt.Date == d);
+        }
+
+        var totalCount = filteredList.Count();
+        var pagedItems = filteredList
+            .OrderByDescending(x => x.IssuedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+
+        return Ok(new
+        {
+            TotalCount = totalCount,
+            TotalPages = (int)Math.Ceiling((double)totalCount / pageSize),
+            Page = page,
+            PageSize = pageSize,
+            Items = pagedItems
+        });
+    }
+
+    [HttpPost("invoice/{id}/refund")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> RefundInvoice(int id)
+    {
+        var invoice = await _context.Invoices.FirstOrDefaultAsync(i => i.Id == id);
+        if (invoice == null) return NotFound("Không tìm thấy hóa đơn");
+
+        if (invoice.Status == InvoiceStatus.Voided)
+            return BadRequest("Hóa đơn này đã được hoàn tiền/hủy từ trước.");
+
+        invoice.Status = InvoiceStatus.Voided;
+
+        // Optionally, deduct loyalty points here if we granted them during ProcessPayment.
+        // For simplicity, we just mark the invoice as Voided.
+        
+        await _context.SaveChangesAsync();
+        return Ok(new { Message = "Đã hoàn tiền / hủy hóa đơn thành công", InvoiceId = id });
     }
 
     [HttpGet("invoice/{id}/pdf")]

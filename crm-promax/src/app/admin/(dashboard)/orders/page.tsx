@@ -66,14 +66,20 @@ export default function OrdersPage() {
   // Mutations
   const updateStatusMutation = useMutation({
     mutationFn: ({ id, status }: { id: number, status: number }) => 
-      apiClient.patch(`/order/${id}/status`, status),
+      apiClient.patch(`/order/${id}/status`, status, { headers: { 'Content-Type': 'application/json' } }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       toast.success("Cập nhật trạng thái thành công!");
     },
-    onError: (err: any) => toast.error("Không thể cập nhật trạng thái", {
-      description: err.response?.data || "Vui lòng kiểm tra lại."
-    })
+    onError: (err: any) => {
+      const errorMsg = typeof err.response?.data === 'string' 
+         ? err.response.data 
+         : (err.response?.data?.title ?? err.response?.data?.message ?? "Vui lòng kiểm tra lại kết nối.");
+         
+      toast.error("Không thể cập nhật trạng thái", {
+         description: errorMsg
+      });
+    }
   });
 
   const handleCancelOrder = (e: React.MouseEvent, orderId: number) => {
@@ -121,7 +127,13 @@ export default function OrdersPage() {
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
         <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
           <span className="text-primary font-bold text-xs uppercase tracking-[0.2em]">Transaction Center</span>
-          <h1 className="text-4xl font-black mt-2 tracking-tight">Quản Lý <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">Đơn Hàng</span></h1>
+          <h1 className="text-4xl font-black mt-2 tracking-tight flex items-center gap-4 flex-wrap">
+            <span>Quản Lý <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">Đơn Hàng</span></span>
+            <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-sm mt-1">
+               <span className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_10px_rgba(var(--primary),0.5)]" />
+               <span className="text-primary font-bold">{totalItems} đơn hàng</span>
+            </div>
+          </h1>
         </motion.div>
 
         <div className="flex flex-wrap gap-4">
@@ -226,8 +238,8 @@ export default function OrdersPage() {
             <AnimatePresence mode="popLayout">
                {filteredOrders.map((order, idx) => {
                   const status = STATUS_MAP[order.status] || STATUS_MAP[0];
-                  // If Served (2), it is ready for checkout!
-                  const isCheckoutReady = order.status === 2 || order.status === 3;
+                  // Eligible for checkout: Pending(0), Preparing(1), Served(2)
+                  const isCheckoutReady = order.status === 0 || order.status === 1 || order.status === 2;
                   
                   return (
                     <motion.div 
@@ -344,6 +356,12 @@ export default function OrdersPage() {
           isOpen={!!selectedOrderDetails}
           onClose={() => setSelectedOrderDetails(null)}
           order={selectedOrderDetails}
+       />
+
+       <InvoiceReprintModal 
+          isOpen={!!reprintOrderId}
+          onClose={() => setReprintOrderId(null)}
+          orderId={reprintOrderId}
        />
     </div>
   );

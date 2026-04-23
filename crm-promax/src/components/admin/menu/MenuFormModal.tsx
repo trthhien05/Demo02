@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { toast } from 'sonner';
 import apiClient from '@/lib/api-client';
+import { uploadToCloudinary } from '@/lib/cloudinary';
 
 const itemSchema = z.object({
   name: z.string().min(2, "Tên món ăn quá ngắn"),
@@ -79,35 +80,13 @@ export default function MenuFormModal({ isOpen, onClose, categories, onSubmitIte
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // If it's a new item (no ID), we just store the file locally for now
-    // and upload it after the item is created.
-    if (!editItem) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setValue('imageUrl', event.target?.result as string, { shouldValidate: true });
-        // Store the actual file object for the submit handler
-        (window as any)._pendingMenuImage = file;
-      };
-      reader.readAsDataURL(file);
-      return;
-    }
-
-    // For existing items, upload immediately
     setIsUploading(true);
-    const formData = new FormData();
-    formData.append('file', file);
-
     try {
-      const res = await apiClient.post(`/menu/item/${editItem.id}/image`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      
-      if (res.data.imageUrl) {
-        setValue('imageUrl', res.data.imageUrl, { shouldValidate: true });
-        toast.success("Tải ảnh lên server thành công");
-      }
+      const url = await uploadToCloudinary(file);
+      setValue('imageUrl', url, { shouldValidate: true });
+      toast.success("Tải ảnh lên Cloudinary thành công!");
     } catch (err: any) {
-      toast.error(err.response?.data || "Không thể tải ảnh lên server.");
+      toast.error(err.message || "Không thể tải ảnh lên Cloudinary.");
     } finally {
       setIsUploading(false);
     }
@@ -161,7 +140,16 @@ export default function MenuFormModal({ isOpen, onClose, categories, onSubmitIte
                 </label>
                 <div className="relative group w-full aspect-square bg-black/40 rounded-2xl border border-white/10 overflow-hidden flex items-center justify-center transition-all hover:border-emerald-500/50">
                   {previewImage ? (
-                    <img src={previewImage} alt="Preview" className="w-full h-full object-cover" />
+                    <img 
+                      src={previewImage.startsWith('http') || previewImage.startsWith('data:') 
+                        ? previewImage 
+                        : previewImage} 
+                      alt="Preview" 
+                      className="w-full h-full object-cover" 
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=1000&auto=format&fit=crop';
+                      }}
+                    />
                   ) : (
                      <div className="flex flex-col items-center text-muted-foreground gap-2">
                         <ImageIcon size={40} className="opacity-50" />

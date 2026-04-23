@@ -29,8 +29,28 @@ export default function InvoiceReprintModal({ isOpen, onClose, orderId }: Invoic
     enabled: !!orderId && isOpen
   });
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = async () => {
+    if (!invoice?.id) return;
+    try {
+      const toastId = toast.loading('Đang khởi tạo tệp báo cáo PDF...');
+      
+      const response = await apiClient.get(`/billing/invoice/${invoice.id}/pdf`, {
+        responseType: 'blob', // Expect binary data
+      });
+      
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `PromaxRMS_Billing_${invoice.id}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast.success('Đã tải xuống hóa đơn PDF thành công!', { id: toastId });
+    } catch (error) {
+       toast.error('Có lỗi xảy ra', { description: 'Không thể tải xuống tệp tin PDF lúc này. Vui lòng thử lại.' });
+    }
   };
 
   if (!isOpen) return null;
@@ -138,7 +158,7 @@ export default function InvoiceReprintModal({ isOpen, onClose, orderId }: Invoic
                    <div className="space-y-4 pt-6 border-t border-white/5">
                       <div className="flex justify-between items-center text-sm">
                          <span className="text-muted-foreground font-bold">Số tiền gốc</span>
-                         <span className="font-bold">{invoice.subtotalAmount?.toLocaleString()}đ</span>
+                         <span className="font-bold">{invoice.subtotal?.toLocaleString()}đ</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
                          <span className="text-muted-foreground font-bold">Phụ phí (VAT 8%)</span>

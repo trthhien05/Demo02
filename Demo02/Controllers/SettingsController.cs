@@ -9,6 +9,7 @@ using System.Security.Claims;
 namespace ConnectDB.Controllers;
 
 [ApiController]
+[ConnectDB.Filters.DisableGlobalAudit]
 [Route("api/[controller]")]
 public class SettingsController : ControllerBase
 {
